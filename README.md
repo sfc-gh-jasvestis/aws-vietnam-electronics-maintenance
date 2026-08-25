@@ -119,6 +119,7 @@ Industry research and Snowflake customer outcomes:
 - **Predictive maintenance reduces maintenance costs 25-30% and eliminates 70-75% of equipment breakdowns** — [McKinsey Operations](https://www.mckinsey.com/capabilities/operations/our-insights/maintenance-4-0)
 - **SMT (Surface Mount Technology) lines require $500K-$2M in spare parts inventory — AI optimization reduces this 20%** — [IPC/Global Electronics Association](https://www.electronics.org/electronics-industry-data)
 - **Bosch achieved 25% reduction in unplanned downtime using ML-based equipment health monitoring** — [Bosch Industry 4.0](https://www.bosch.com/stories/industry-4-0/)
+- **Western Digital** (Snowflake customer): processes 2+ petabytes of manufacturing data on Snowflake for real-time yield and quality analytics across global fabs -- [snowflake.com/customers/western-digital](https://www.snowflake.com/en/customers/all-customers/case-study/western-digital/)
 
 ## Key Demo Numbers
 
