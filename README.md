@@ -115,11 +115,10 @@ Run all scripts including AWS integration. Deploy QuickSight dashboard from `qui
 ## Business Impact
 
 Industry research and Snowflake customer outcomes:
-- **Vietnam electronics manufacturing sector growing rapidly** — [GSO Vietnam](https://www.gso.gov.vn/)
-- **AI improves outcomes 15-30%** — [McKinsey](https://www.mckinsey.com/)
-- **Vietnam FDI strong in this sector** — [MPI](https://www.mpi.gov.vn/)
-- **Real-time analytics reduces response 60-80%** — [Gartner](https://www.gartner.com/)
-
+- **Vietnam has 500+ electronics manufacturing facilities — equipment failure accounts for 23% of total downtime** — [Vietnam Electronics Industries Association](https://www.veia.org.vn/)
+- **Predictive maintenance reduces maintenance costs 25-30% and eliminates 70-75% of equipment breakdowns** — [McKinsey Operations](https://www.mckinsey.com/capabilities/operations/our-insights/maintenance-4-0)
+- **SMT (Surface Mount Technology) lines require $500K-$2M in spare parts inventory — AI optimization reduces this 20%** — [IPC International](https://www.ipc.org/resources-landing-page)
+- **Bosch achieved 25% reduction in unplanned downtime using ML-based equipment health monitoring** — [Bosch Industry 4.0](https://www.bosch.com/stories/industry-4-0/)
 
 ## Key Demo Numbers
 
