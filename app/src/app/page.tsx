@@ -32,15 +32,23 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+
+  // Look up a KPI value returned by /api/data (sourced from CURATED.KPI_SUMMARY).
+  // Falls back to the original literal so the card still renders if the API,
+  // or KPI_SUMMARY, is unavailable.
+  const kpiVal = (title: string, fallback: string): string =>
+    (data?.kpiCards as { title: string; value: string }[] | undefined)
+      ?.find((k) => k.title === title)?.value ?? fallback;
+
   const title = narrative?.title || 'SEA AWS Demo';
 
   const executiveCockpit = (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard title="Equipment Uptime" value="96.4%" status="neutral" />
-        <KPICard title="Unplanned Stops" value="14" status="warning" />
-        <KPICard title="MTBF (Avg)" value="847 hrs" status="neutral" />
-        <KPICard title="Equipment Managed" value="2,400" status="neutral" />
+        <KPICard title="Equipment Uptime" value={kpiVal('Equipment Uptime', '96.4%')} status="neutral" />
+        <KPICard title="Unplanned Stops" value={kpiVal('Unplanned Stops', '14')} status="warning" />
+        <KPICard title="MTBF (Avg)" value={kpiVal('MTBF (Avg)', '847 hrs')} status="neutral" />
+        <KPICard title="Equipment Managed" value={kpiVal('Equipment Managed', '2,400')} status="neutral" />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="lg:col-span-1">
@@ -87,9 +95,9 @@ export default function HomePage() {
   const domainTab1 = (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KPICard title="Predicted Failures (7d)" value="6" />
-        <KPICard title="Parts on Order" value="24" />
-        <KPICard title="Spare Coverage" value="91%" />
+        <KPICard title="Predicted Failures (7d)" value={kpiVal('Predicted Failures (7d)', '6')} />
+        <KPICard title="Parts on Order" value={kpiVal('Parts on Order', '24')} />
+        <KPICard title="Spare Coverage" value={kpiVal('Spare Coverage', '91%')} />
       </div>
       <Chart
         data={data?.detail || [{ x: 'Mon', y: 24 }, { x: 'Tue', y: 28 }, { x: 'Wed', y: 22 }, { x: 'Thu', y: 31 }, { x: 'Fri', y: 26 }, { x: 'Sat', y: 19 }, { x: 'Sun', y: 23 }]}
