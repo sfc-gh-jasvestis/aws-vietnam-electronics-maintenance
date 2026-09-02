@@ -21,8 +21,8 @@ Snowflake delivers predictive maintenance intelligence for Vietnamese electronic
 | Database | `VIETNAM_ELECTRONICS_MAINTENANCE` |
 | Service | `VIETNAM_ELECTRONICS_MAINTENANCE_APP` |
 | Compute pool | `SEA_DEMOS_VIETNAM_POOL` |
-| Dimension table | `RAW.DOCUMENTS` (20 rows) |
-| Fact table | `RAW.METRICS` (250,000 rows, 90 days) |
+| Dimension table | `RAW.MACHINES` (20 rows) |
+| Fact table | `RAW.SENSOR_READINGS` (250,000 rows, 90 days) |
 | Curated layer | `CURATED.PERFORMANCE_SUMMARY`, `CURATED.TREND_ANALYSIS`, `CURATED.KPI_SUMMARY` |
 | Currency | VND (₫) |
 
@@ -43,11 +43,11 @@ original literal as a fallback, so it still renders if Snowflake is unreachable.
 | Card | Value | Backed by |
 |---|---|---|
 | Equipment Uptime | `96.4%` | average per event |
-| Unplanned Stops | `14` | total across Documents |
+| Unplanned Stops | `14` | total across Machines |
 | MTBF (Avg) | `847 hrs` | average per event |
-| Equipment Managed | `2,400` | total across Documents |
-| Predicted Failures (7d) | `6` | total across Documents |
-| Parts on Order | `24` | total across Documents |
+| Equipment Managed | `2,400` | total across Machines |
+| Predicted Failures (7d) | `6` | total across Machines |
+| Parts on Order | `24` | total across Machines |
 | Spare Coverage | `91%` | average per event |
 
 
