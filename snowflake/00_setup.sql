@@ -1,16 +1,13 @@
--- ============================================================================
--- Predictive Maintenance
--- Predictive Maintenance for Vietnam - ML.FORECAST and Dynamic Tables power real-time predictive maintenance intelligence for electronics manufacturing in Bac Ninh & Vinh Phuc.
--- ============================================================================
-USE ROLE ACCOUNTADMIN;
-CREATE DATABASE IF NOT EXISTS ELECTRONICS_MAINTENANCE;
-CREATE WAREHOUSE IF NOT EXISTS ELECTRONICS_WH WAREHOUSE_SIZE = 'MEDIUM' AUTO_SUSPEND = 120 AUTO_RESUME = TRUE;
-USE DATABASE ELECTRONICS_MAINTENANCE;
-CREATE SCHEMA IF NOT EXISTS RAW;
-CREATE SCHEMA IF NOT EXISTS CURATED;
-CREATE SCHEMA IF NOT EXISTS ML;
-CREATE SCHEMA IF NOT EXISTS AI;
-CREATE SCHEMA IF NOT EXISTS SEARCH;
-CREATE SCHEMA IF NOT EXISTS APP;
+-- Generated from generator/demo_specs/aws-vietnam-electronics-maintenance.json
+-- Regenerate with: python3 generator/gen_repo_docs.py aws-vietnam-electronics-maintenance
+-- This is the schema that is actually deployed for VIETNAM_ELECTRONICS_MAINTENANCE.
 
-USE WAREHOUSE ELECTRONICS_WH;
+-- VIETNAM_ELECTRONICS_MAINTENANCE  (Predictive Maintenance)
+-- generated from generator/demo_specs/aws-vietnam-electronics-maintenance.json - do not hand-edit
+CREATE DATABASE IF NOT EXISTS VIETNAM_ELECTRONICS_MAINTENANCE;
+CREATE SCHEMA IF NOT EXISTS VIETNAM_ELECTRONICS_MAINTENANCE.RAW;
+CREATE SCHEMA IF NOT EXISTS VIETNAM_ELECTRONICS_MAINTENANCE.CURATED;
+CREATE SCHEMA IF NOT EXISTS VIETNAM_ELECTRONICS_MAINTENANCE.APP;
+USE DATABASE VIETNAM_ELECTRONICS_MAINTENANCE;
+
+-- 5 real regions; entity names carry their region so the two always agree
