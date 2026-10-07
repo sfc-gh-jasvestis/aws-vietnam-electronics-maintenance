@@ -7,197 +7,127 @@ import { Chart } from '@/components/Chart';
 import { DataTable } from '@/components/DataTable';
 import { AskAI } from '@/components/AskAI';
 import { ActionMemo } from '@/components/ActionMemo';
-import { GeoMap } from '@/components/GeoMap';
-import { ArchitectureDiagram } from '@/components/ArchitectureDiagram';
 
-interface DemoNarrative {
-  title: string;
-  duration: string;
-  thesis: string;
-  tabs: any[];
+interface MaintenanceData {
+  kpiCards: { title: string; value: string }[];
+  timeseries: { period: string; value: number | null }[];
+  categories: { category: string; count: number | null }[];
+  entities: Record<string, string | number | null>[];
+  pmYield: { name: string; compliance: number; yield: number }[];
+  sourceWatermark: string | null;
+  rawWatermark: string | null;
+  requestedAt: string;
+  stale: boolean;
+  pipelineBehind: boolean;
 }
 
 export default function HomePage() {
-  const [narrative, setNarrative] = useState<DemoNarrative | null>(null);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<MaintenanceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    fetch('/demo_narrative.json')
-      .then((r) => r.json())
-      .then(setNarrative)
-      .catch(() => {});
-    fetch('/api/data')
-      .then((r) => r.json())
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setData(null);
+    fetch('/api/data', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Data request failed');
+        const payload = await response.json();
+        if (!Array.isArray(payload.kpiCards) || !Array.isArray(payload.entities)) throw new Error('Invalid contract');
+        return payload;
+      })
       .then(setData)
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        if (!controller.signal.aborted) setError('Snowflake data is unavailable. No fallback values are displayed.');
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [attempt]);
 
-
-  // Look up a KPI value returned by /api/data (sourced from CURATED.KPI_SUMMARY).
-  // Falls back to the original literal so the card still renders if the API,
-  // or KPI_SUMMARY, is unavailable.
-  const kpiVal = (title: string, fallback: string): string =>
-    (data?.kpiCards as { title: string; value: string }[] | undefined)
-      ?.find((k) => k.title === title)?.value ?? fallback;
-
-  const title = narrative?.title || 'SEA AWS Demo';
-
-  const executiveCockpit = (
+  const kpiVal = (title: string) => data?.kpiCards.find((card) => card.title === title)?.value ?? 'Unavailable';
+  const executive = (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard title="Equipment Uptime" value={kpiVal('Equipment Uptime', '96.4%')} status="neutral" />
-        <KPICard title="Unplanned Stops" value={kpiVal('Unplanned Stops', '14')} status="warning" />
-        <KPICard title="MTBF (Avg)" value={kpiVal('MTBF (Avg)', '847 hrs')} status="neutral" />
-        <KPICard title="Equipment Managed" value={kpiVal('Equipment Managed', '2,400')} status="neutral" />
+        {['Equipment Uptime', 'Unplanned Stops', 'MTBF (Avg)', 'Equipment Managed'].map((title) => (
+          <KPICard key={title} title={title} value={kpiVal(title)} status="neutral" />
+        ))}
       </div>
+      <p className="text-sm text-slate-600">Uptime = operating / planned hours. MTBF = operating hours / failure count. All observations in the snapshot are included.</p>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="lg:col-span-1">
-          <GeoMap
-            country="vietnam"
-            labels={{ entity: 'Areas', event: 'Sensor Readings', alert: 'Downtime Events' }}
-            regions={data?.regions}
-            markers={[{"label": "Ho Chi Minh City", "value": "Factory complex", "color": "blue", "size": "lg"}, {"label": "Binh Duong", "value": "Samsung plant", "color": "green", "size": "lg"}, {"label": "Hanoi", "value": "R&D + assembly", "color": "green", "size": "md"}, {"label": "Hai Phong", "value": "Export port", "color": "blue", "size": "md"}]}
-            routes={[{"from": "Binh Duong", "to": "Ho Chi Minh City", "color": "#29B5E8"}, {"from": "Hanoi", "to": "Hai Phong", "color": "#10B981"}]}
-            title="Geographic Overview"
-            height={400}
-          />
-        </div>
-        <div className="lg:col-span-1 grid grid-cols-1 gap-4">
-      <div className="grid grid-cols-1 gap-4 grid-cols-1">
-        <Chart
-          data={data?.timeseries || [{ period: 'Jan', value: 112 }, { period: 'Feb', value: 118 }, { period: 'Mar', value: 135 }, { period: 'Apr', value: 148 }, { period: 'May', value: 156 }, { period: 'Jun', value: 142 }, { period: 'Jul', value: 138 }, { period: 'Aug', value: 151 }, { period: 'Sep', value: 144 }, { period: 'Oct', value: 132 }, { period: 'Nov', value: 121 }, { period: 'Dec', value: 115 }]}
-          type="line"
-          xKey="period"
-          yKeys={[{ key: 'value', name: 'Uptime %' }]}
-          title="Uptime Trend (Weekly)"
-        />
-        <Chart
-          data={data?.categories || [{ category: 'North', count: 82 }, { category: 'Central', count: 74 }, { category: 'South', count: 91 }, { category: 'Highland', count: 68 }, { category: 'Coastal', count: 77 }]}
-          type="bar"
-          xKey="category"
-          yKeys={[{ key: 'count', name: 'Hours' }]}
-          title="Downtime by Root Cause"
-        />
+        <Chart data={data?.timeseries ?? []} type="line" xKey="period" yKeys={[{ key: 'value', name: 'Uptime %' }]} title="Daily Equipment Uptime" />
+        <Chart data={data?.categories ?? []} type="bar" xKey="category" yKeys={[{ key: 'count', name: 'Downtime hours' }]} title="Recorded Downtime by Root Cause" />
       </div>
-        </div>
-      </div>
-      <DataTable
-        columns={[
-          { key: 'id', header: 'Tool' },
-          { key: 'name', header: 'Area' },
-          { key: 'region', header: 'Region' },
-          { key: 'status', header: 'Health' },
-          { key: 'm1', header: 'MTBF (hrs)' },
-          { key: 'm2', header: 'Mtbf' },
-          { key: 'm3', header: 'Spare Coverage' },
-          { key: 'events', header: 'Sensor Readings' },
-          { key: 'alerts', header: 'Downtime Events' },
-        ]}
-        data={data?.entities || []}
-        title="Equipment Health Dashboard"
-      />
+      <DataTable columns={[
+        { key: 'id', header: 'Machine' }, { key: 'name', header: 'Name' }, { key: 'region', header: 'Region' },
+        { key: 'category', header: 'Equipment type' }, { key: 'uptime', header: 'Uptime (%)' },
+        { key: 'mtbf', header: 'MTBF (hours)' }, { key: 'events', header: 'Machine-days' },
+        { key: 'failures', header: 'Unplanned stops' },
+      ]} data={data?.entities ?? []} title="Equipment observations" />
     </div>
   );
-
-  const domainTab1 = (
+  const predictive = (
+    <div className="space-y-4">
+      <h2 className="font-semibold">Remaining useful life and failure prediction</h2>
+      <p role="status">Model validation is incomplete. Predictions are unavailable; seeded values are not model outputs.</p>
+      <p className="text-sm text-slate-600">Required repair: train and evaluate a remaining-useful-life model, persist predictions with model version and scoring time, then reconcile the seven-day failure count. This capability is not accepted as complete.</p>
+    </div>
+  );
+  const planning = (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KPICard title="Predicted Failures (7d)" value={kpiVal('Predicted Failures (7d)', '6')} />
-        <KPICard title="Parts on Order" value={kpiVal('Parts on Order', '24')} />
-        <KPICard title="Spare Coverage" value={kpiVal('Spare Coverage', '91%')} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <KPICard title="Parts on Order" value={kpiVal('Parts on Order')} />
+        <KPICard title="Spare Coverage" value={kpiVal('Spare Coverage')} />
       </div>
-      <Chart
-        data={data?.detail || [{ x: 'Mon', y: 24 }, { x: 'Tue', y: 28 }, { x: 'Wed', y: 22 }, { x: 'Thu', y: 31 }, { x: 'Fri', y: 26 }, { x: 'Sat', y: 19 }, { x: 'Sun', y: 23 }]}
-        type="area"
-        xKey="x"
-        yKeys={[{ key: 'y', name: 'Days' }]}
-        title="Remaining Useful Life"
-        height={400}
-      />
+      <Chart data={data?.pmYield ?? []} type="scatter" xKey="compliance" yKeys={[{ key: 'yield', name: 'Yield (%)' }]} title="PM compliance (%) vs Yield (%) by machine" />
+      <p className="text-sm text-slate-600">Synthetic associations are not evidence that maintenance caused a yield improvement.</p>
+      <ActionMemo persona={{ name: 'Hoang Duc Minh', role: 'Maintenance Director (fictional persona)' }} context={{}}
+        onGenerate={async () => { throw new Error('Grounded AI backend validation is incomplete'); }} />
+      <p role="status" className="text-sm text-slate-600">Grounded memo generation is not yet validated. No notification is sent.</p>
     </div>
   );
-
-  const domainTab2 = (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Chart
-          data={data?.breakdown || [{ label: 'Zone North', value: 35 }, { label: 'Zone Central', value: 28 }, { label: 'Zone South', value: 22 }, { label: 'Zone East', value: 15 }]}
-          type="pie"
-          xKey="label"
-          yKeys={[{ key: 'value', name: 'Correlation' }]}
-          title="PM Compliance vs Yield"
-        />
-        <ActionMemo
-          persona={{ name: 'Hoang Duc Minh', role: 'Maintenance Director' }}
-          context={{}}
-          onGenerate={async () => {
-            const memos = [
-              {
-                subject: 'Urgent: Operational Action Required',
-                body: `Dear Leadership Team,\n\nBased on our analysis of the latest operational data, I am writing to recommend immediate action on the following critical items.\n\nKey Findings:\n- Performance metrics indicate a deviation from target KPIs in several areas\n- Predictive models suggest these trends will continue without intervention\n- Estimated impact: 12-15% improvement in efficiency if addressed within 2 weeks\n\nI recommend we schedule a review meeting this week to align on next steps.\n\nBest regards`,
-                urgency: 'HIGH' as const,
-                actions: ['Schedule predictive PM for Reflow-7 (thermal sensor degrading)', 'Order spare motor for Pick&Place-12 (lead time 4 weeks)', 'Root-cause analysis for repeated AOI camera failures'],
-              },
-              {
-                subject: 'Weekly Performance Summary & Recommendations',
-                body: `Dear Team,\n\nPlease find below the AI-generated weekly performance summary.\n\nHighlights:\n- Overall performance trending 8% above quarterly targets\n- Three areas identified for optimization with potential 20% cost savings\n- New anomaly patterns detected that warrant monitoring\n\nRecommended next steps are outlined below. Please review and confirm priority assignments by end of week.\n\nRegards`,
-                urgency: 'MEDIUM' as const,
-                actions: ['Schedule predictive PM for Reflow-7 (thermal sensor degrading)', 'Order spare motor for Pick&Place-12 (lead time 4 weeks)', 'Root-cause analysis for repeated AOI camera failures'],
-              },
-              {
-                subject: 'Strategic Initiative: Data-Driven Optimization',
-                body: `Dear Stakeholders,\n\nOur AI analysis has identified a significant opportunity for operational optimization.\n\nExecutive Summary:\n- Current utilization rate: 78% (target: 90%)\n- Root cause analysis points to 3 primary factors\n- Projected ROI of recommended changes: 2.4x within 6 months\n\nThe attached data supports a phased implementation approach starting with the highest-impact items.\n\nPlease advise on scheduling a planning session.\n\nBest regards`,
-                urgency: 'HIGH' as const,
-                actions: ['Schedule predictive PM for Reflow-7 (thermal sensor degrading)', 'Order spare motor for Pick&Place-12 (lead time 4 weeks)', 'Root-cause analysis for repeated AOI camera failures'],
-              },
-            ];
-            return memos[Math.floor(Math.random() * memos.length)];
-          }}
-        />
+  const ai = (
+    <div className="space-y-4">
+      <p role="status">The authenticated AI backend is still under repair. No canned answers or fabricated SQL are returned.</p>
+      <div className="h-[500px]">
+        <AskAI title="Ask AI" mode="both" sampleQuestions={['Which machines have the most unplanned stops?', 'How is equipment uptime calculated?']}
+          onSubmit={async () => { throw new Error('AI backend validation is incomplete'); }} />
       </div>
     </div>
   );
-
-  const askAiTab = (
-    <div className="h-[600px]">
-      <AskAI
-        title="Ask AI"
-        sampleQuestions={[
-          'Which equipment is predicted to fail next week?',
-          'Show MTBF trend by equipment type',
-          'What is the correlation between PM compliance and yield?',
-        ]}
-        mode="sql"
-        onSubmit={async (question, mode) => {
-          return {
-            answer: `[Demo Mode] Response to: "${question}" (${mode} mode). Connect to Snowflake for live data.`,
-            sql: mode === 'sql' ? 'SELECT * FROM CURATED.SUMMARY LIMIT 10;' : undefined,
-          };
-        }}
-      />
+  const architecture = (
+    <div className="space-y-4">
+      <h2 className="font-semibold">Implementation and validation status</h2>
+      <p>Core source: synthetic machines, daily observations and spares. Curated dynamic tables compute numerator/denominator metrics and are suspended after on-demand initialization.</p>
+      <p>Application: Next.js server queries the explicit curated contract. Request time and source observation watermark are separate.</p>
+      <p>QuickSight: offline definitions include equipment count, daily uptime and per-machine uptime. Cloud rendering and Q answers remain untested.</p>
+      <p>Still incomplete: model output, search, semantic analytics, authenticated AI, AWS ingestion and notifications. These capabilities remain required; this page is not an end-to-end certification.</p>
     </div>
   );
-
-  const architectureTab = (
-    <ArchitectureDiagram
-      snowflakeFeatures={['Dynamic Tables (5-min refresh)', 'ML Functions (Forecast + Anomaly)', 'Cortex Search + Agent', 'Semantic View + Intelligence', 'Alerts + Notifications']}
-      awsServices={[{ name: 'Amazon S3', role: 'Strategy Docs' }, { name: 'Amazon S3 + Kinesis', role: 'Integration' }, { name: 'Amazon SNS', role: 'Integration' }, { name: 'Amazon QuickSight + Q', role: 'Integration' }]}
-    />
-  );
-
   const tabs = [
-    { id: 'executive-cockpit', label: 'Executive Cockpit', icon: '📊', content: executiveCockpit },
-    { id: 'domain-1', label: 'Predictive', icon: '📈', content: domainTab1 },
-    { id: 'domain-2', label: 'PM Planning', icon: '⚡', content: domainTab2 },
-    { id: 'ask-ai', label: 'Ask AI', icon: '🤖', content: askAiTab },
-    { id: 'architecture', label: 'Architecture & Data', icon: '🏗️', content: architectureTab },
-  ];
-
-  return (
-    <AppLayout
-      title={title}
-      tabs={tabs}
-      narrative={narrative}
-    />
-  );
+    { id: 'executive-cockpit', label: 'Executive Cockpit', icon: '', content: executive },
+    { id: 'predictive', label: 'Predictive', icon: '', content: predictive },
+    { id: 'planning', label: 'PM Planning', icon: '', content: planning },
+    { id: 'ask-ai', label: 'Ask AI', icon: '', content: ai },
+    { id: 'architecture', label: 'Architecture & Data', icon: '', content: architecture },
+  ].map((tab) => ({ ...tab, content: tab.id === 'architecture' ? tab.content : (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">Synthetic demo data. On-demand snapshots are not live customer operations.</p>
+      {loading ? <p role="status">Loading Snowflake data...</p> : error ? (
+        <div role="alert" className="rounded border border-red-200 p-4">
+          <p>{error}</p>
+          <button className="mt-3 rounded border px-3 py-2" onClick={() => setAttempt((value) => value + 1)}>Retry data connection</button>
+        </div>
+      ) : !data?.entities.length ? <p role="status">No equipment observations are available in this snapshot.</p> : (
+        <>
+          <p className="text-sm">Observation watermark: {data.sourceWatermark ?? 'Unavailable'}. Request time: {data.requestedAt}.</p>
+          {(data.stale || data.pipelineBehind) && <p role="status" className="text-amber-700">Stale or lagging snapshot. Refresh the on-demand pipeline before presenting current results.</p>}
+          {tab.content}
+        </>
+      )}
+    </div>
+  ) }));
+  return <AppLayout title="Vietnam Electronics Maintenance" tabs={tabs} />;
 }

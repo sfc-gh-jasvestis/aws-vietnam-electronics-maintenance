@@ -13,22 +13,37 @@ export function ActionMemo({ persona, context, onGenerate, onSend }: ActionMemoP
   const [memo, setMemo] = useState<{ subject: string; body: string; urgency: string; actions: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
+    if (loading || sending) return;
     setLoading(true);
     setSent(false);
+    setError(null);
+    setMemo(null);
     try {
       const result = await onGenerate(persona.name, context);
       setMemo(result);
+    } catch {
+      setError('Unable to generate a grounded draft. Check the data and AI connection, then retry.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSend = async () => {
-    if (!memo || !onSend) return;
-    await onSend({ subject: memo.subject, body: memo.body });
-    setSent(true);
+    if (!memo || !onSend || sending || loading || sent) return;
+    setSending(true);
+    setError(null);
+    try {
+      await onSend({ subject: memo.subject, body: memo.body });
+      setSent(true);
+    } catch {
+      setError('Delivery was not confirmed. Check delivery status before trying again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const urgencyColors = {
@@ -46,13 +61,15 @@ export function ActionMemo({ persona, context, onGenerate, onSend }: ActionMemoP
         </div>
         <button
           onClick={handleGenerate}
-          disabled={loading}
+          disabled={loading || sending}
           className="rounded bg-snowflake-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         >
           {loading ? 'Generating...' : 'Generate with AI'}
         </button>
       </div>
 
+      <p className="mb-3 text-xs text-slate-500">AI drafts require human review. Generating a draft does not send it.</p>
+      {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
       {memo && (
         <div className="space-y-3">
           <div className={`inline-block rounded border px-2 py-0.5 text-xs font-medium ${urgencyColors[memo.urgency as keyof typeof urgencyColors] || urgencyColors.MEDIUM}`}>
@@ -79,10 +96,10 @@ export function ActionMemo({ persona, context, onGenerate, onSend }: ActionMemoP
           {onSend && (
             <button
               onClick={handleSend}
-              disabled={sent}
+              disabled={sent || sending || loading}
               className={`w-full rounded py-2 text-sm font-medium ${sent ? 'bg-emerald-100 text-emerald-700' : 'bg-snowflake-accent text-white hover:bg-orange-600'}`}
             >
-              {sent ? '✓ Sent via Email' : 'Send Action Memo'}
+              {sent ? 'Delivery confirmed' : sending ? 'Sending...' : 'Send Action Memo'}
             </button>
           )}
         </div>

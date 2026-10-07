@@ -1,5 +1,44 @@
 # Predictive Maintenance
 
+> Repair branch: core pipeline validation only, not an end-to-end demo certification.
+> The sections below describe the legacy target capabilities and are under review.
+> Do not run scripts 05 onward or present their metrics/claims as validated.
+
+## Validated repair workflow
+
+Use Python 3.11+ with `snowflake-connector-python`, Node.js 22+, and an existing
+X-Small Snowflake warehouse with auto-suspend at or below 120 seconds.
+The guarded runner currently accepts only the authorized `demo43` pilot account
+and a **new** database beginning `REPAIR_VIETNAM_MAINTENANCE_`. It refuses existing
+databases and never replaces the running demo. Inspect the dry run first:
+
+```bash
+python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_TEST --warehouse HOL_GEN2_WH
+python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_TEST --warehouse HOL_GEN2_WH --apply
+python snowflake/test_run_core.py
+python quicksight/test_build_dashboards.py
+npm --prefix app ci
+npm --prefix app run build
+```
+
+The runner executes only 00/02/03/04 and renders the validated warehouse
+identifier in the DT DDL. Do not execute these files individually without the
+session variables and rendering step. It creates 20 synthetic machines, 1,800
+machine-day observations and 20 spare-part records; reconciles core measures;
+and suspends the four initialized dynamic tables. Retain the isolated namespace
+for inspection. A failed run leaves its isolated evidence intact; use a new name
+for a clean retry, not a destructive reset.
+
+The UI shows unavailable/error states instead of fallback values. Its API now
+requires the repaired core schema. Do not point it at the old live database or
+cut over the deployed service yet. Model, AI, search, AWS ingestion, deployed UI,
+and QuickSight/Q functional validation are still pending. QuickSight generation
+is dry-run by default (`python quicksight/build_dashboards.py --help`); `--apply`
+is explicit and requires an existing data source and principal. Successful API
+creation is not proof of rendered charts or correct Q answers.
+
+## Legacy target overview (not yet certified)
+
 Predictive Maintenance for Vietnam - ML.FORECAST and Dynamic Tables power real-time predictive maintenance intelligence for electronics manufacturing in Bac Ninh & Vinh Phuc.
 
 ## Architecture
@@ -76,17 +115,8 @@ flowchart LR
 
 ### Deployment
 
-```bash
-snowsql -f snowflake/00_setup.sql
-snowsql -f snowflake/01_marketplace_install.sql
-snowsql -f snowflake/02_raw_tables.sql
-snowsql -f snowflake/03_staging.sql
-snowsql -f snowflake/04_dynamic_tables.sql
-snowsql -f snowflake/05_search.sql
-snowsql -f snowflake/06_ml_models.sql
-snowsql -f snowflake/07_semantic_view.sql
-snowsql -f snowflake/08_agent.sql
-```
+See the guarded core workflow above. The historical all-script sequence is not
+currently a supported fresh-deployment path; downstream scripts remain under repair.
 
 ### React App (SPCS)
 ```bash
