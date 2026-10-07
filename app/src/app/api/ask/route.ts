@@ -1,0 +1,83 @@
+import { NextResponse } from 'next/server';
+import { executeQuery } from '@/lib/snowflake';
+
+export const dynamic = 'force-dynamic';
+
+// Only these fixed, read-only queries can run. The model never writes SQL; it
+// only summarises rows returned here, so every answer is traceable to data.
+const INTENTS: Record<string, { match: RegExp; sql: string }> = {
+  stops: {
+    match: /stop|failure|unplanned|breakdown/i,
+    sql: `SELECT ENTITY_ID, ENTITY_NAME, ALERT_COUNT AS FAILURE_COUNT, DOWNTIME_HOURS
+FROM CURATED.PERFORMANCE_SUMMARY
+QUALIFY DENSE_RANK() OVER (ORDER BY ALERT_COUNT DESC) <= 2
+ORDER BY ALERT_COUNT DESC, DOWNTIME_HOURS DESC`,
+  },
+  causes: {
+    match: /cause|root|why/i,
+    sql: `SELECT ROOT_CAUSE, DOWNTIME_HOURS, FAILURE_COUNT
+FROM CURATED.DOWNTIME_CAUSES ORDER BY DOWNTIME_HOURS DESC LIMIT 5`,
+  },
+  kpis: {
+    match: /.*/,
+    sql: `SELECT TITLE, DISPLAY, SOURCE_WATERMARK FROM CURATED.KPI_SUMMARY ORDER BY SORT_ORDER`,
+  },
+};
+
+const DEFINITIONS =
+  'Equipment uptime = sum(operating hours) / sum(planned hours). MTBF = sum(operating hours) / sum(failures). ' +
+  'All data is synthetic demo data.';
+
+async function summarise(question: string, rows: unknown[]): Promise<string> {
+  const prompt =
+    'You are a maintenance analyst. Answer ONLY from the JSON rows and definitions below. ' +
+    'If the rows do not answer the question, say so. Do not invent numbers. Keep it under 120 words.\n' +
+    `Definitions: ${DEFINITIONS}\nRows: ${JSON.stringify(rows)}\nQuestion: ${question}`;
+  const out = await executeQuery<{ R: string }>(
+    `SELECT AI_COMPLETE('claude-sonnet-4-5', ?) AS R`,
+    [prompt],
+  );
+  const raw = String(out[0]?.R ?? '').trim();
+  // AI_COMPLETE returns a JSON string literal; decode it when present.
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'string' ? parsed : raw;
+  } catch {
+    return raw;
+  }
+}
+
+export async function POST(req: Request) {
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const question = typeof body?.question === 'string' ? body.question.trim().slice(0, 2000) : '';
+  const memo = body?.mode === 'memo';
+  if (!memo && !question) return NextResponse.json({ error: 'Question required' }, { status: 400 });
+
+  try {
+    if (memo) {
+      const [kpis, stops, causes] = await Promise.all([
+        executeQuery(INTENTS.kpis.sql),
+        executeQuery(INTENTS.stops.sql),
+        executeQuery(INTENTS.causes.sql),
+      ]);
+      const rows = { kpis, topStopMachines: stops, topCauses: causes };
+      const answer = await summarise(
+        'Draft a short action memo for the maintenance director with 3 prioritised actions, citing the figures.',
+        [rows],
+      );
+      return NextResponse.json({ answer, sources: rows, draft: true, synthetic: true });
+    }
+    const key = Object.keys(INTENTS).find((k) => INTENTS[k].match.test(question))!;
+    const rows = await executeQuery(INTENTS[key].sql);
+    const answer = await summarise(question, rows);
+    return NextResponse.json({ answer, sql: INTENTS[key].sql, sources: rows, synthetic: true });
+  } catch (err) {
+    console.error('ask route failed', err);
+    return NextResponse.json({ error: 'AI service unavailable' }, { status: 503 });
+  }
+}
