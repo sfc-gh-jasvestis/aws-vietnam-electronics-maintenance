@@ -98,7 +98,7 @@ All data is synthetic and seeded, so every rebuild reproduces it.
 - Snowflake account with ACCOUNTADMIN access, and Cortex AI enabled (AI_COMPLETE, Search, Agent).
 - An X-Small warehouse with auto-suspend at or below 120 s, and an existing SPCS compute pool.
 - Python 3.11+, `snowflake-connector-python`, Node.js 22+, Docker and the `snow` CLI.
-- App image: run `snow spcs image-registry login`, then build and push `vn-maint-app:v3` to the database's `APP.IMAGES` repository (see the header of `snowflake/07_deploy_app.sql`).
+- App image: run `snow spcs image-registry login`, then build and push `vn-maint-app:v4` to the database's `APP.IMAGES` repository (see the header of `snowflake/07_deploy_app.sql`).
 - AWS build only: `boto3`, AWS credentials for the target account (us-west-2) with Bedrock access, and QuickSight Enterprise.
 
 ### SPCS App
@@ -128,11 +128,11 @@ Both modes share the same core. They differ in three places, and the app's `DEMO
 
 ```bash
 # 1. Core data and dynamic tables (guarded: new isolated database only)
-python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
+python snowflake/run_core.py --database VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
 # 2. Native telemetry, ML, search, semantic view, agent, alert and task graph
-python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com
 # 3. App on SPCS with DEMO_PLATFORM=snowflake (push the image first)
-python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com --files 07_deploy_app.sql
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com --files 07_deploy_app.sql
 ```
 
 During the demo:
@@ -146,15 +146,15 @@ Afterwards, drop the database or run `ALTER SERVICE APP.REPAIR_VN_MAINT_APP SUSP
 
 ```bash
 # 1. Core data and dynamic tables (guarded: new isolated database only)
-python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
+python snowflake/run_core.py --database VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
 # 2. AWS ingestion and Bedrock (dry run first, then --apply)
-python aws/setup_aws.py --database REPAIR_VIETNAM_MAINTENANCE_X --account <aws-account> --apply
+python aws/setup_aws.py --database VIETNAM_MAINTENANCE_X --account <aws-account> --apply
 # 3. ML, search, semantic view, agent, alert and task graph
-python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com
 # 4. App on SPCS with DEMO_PLATFORM=aws (push the image first)
-python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com --files 07_deploy_app.sql
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com --files 07_deploy_app.sql
 # 5. QuickSight dashboard and Q topic (needs an existing Snowflake data source)
-python quicksight/build_dashboards.py --database REPAIR_VIETNAM_MAINTENANCE_X ... --apply --update --with-topic
+python quicksight/build_dashboards.py --database VIETNAM_MAINTENANCE_X ... --apply --update --with-topic
 ```
 
 QuickSight objects must be shared with the QuickSight user who signs in (`--principal-arn`); otherwise the console shows nothing.
@@ -165,6 +165,13 @@ During the demo:
 - Run `EXECUTE TASK APP.TASK_REFRESH_CURATED` to refresh the curated tables and rescore risk.
 
 Afterwards, `python aws/teardown_aws.py ... --apply` removes the AWS resources and the account-level Bedrock external-access and S3 storage integrations. It leaves the email integration `REPAIR_VN_MAINT_EMAIL_INT`, which the Snowflake-only build also uses.
+
+Renaming a demo database is not transparent:
+- Recreate the SPCS service, and re-run `06_intelligence.sql`, because the agent spec names the database.
+- Repoint `REPAIR_VN_MAINT_BEDROCK_EAI` at the renamed secret and network rule.
+- Update the QuickSight data source and datasets with `build_dashboards.py --update`.
+
+The service's ingress URL changes when the service is recreated.
 
 ## Business Impact
 
@@ -191,7 +198,7 @@ These figures are synthetic and come from the validated builds.
 
 Both builds were validated end to end on 2026-10-08 in isolated pilot databases on `demo43` (AWS us-west-2). Evidence is in `demo_contract.json` (`builds`, `required_capabilities`).
 
-| Check | Snowflake Only (`REPAIR_VIETNAM_MAINTENANCE_20261008_SF`) | AWS + Snowflake (`REPAIR_VIETNAM_MAINTENANCE_20261007_C`) |
+| Check | Snowflake Only (`VIETNAM_MAINTENANCE_SNOWFLAKE`) | AWS + Snowflake (`VIETNAM_MAINTENANCE_AWS`) |
 |---|---|---|
 | Core KPIs and ML | Same KPIs (181 stops); MAC-0013 at 96.53% | Same; KPIs reconciled to a RAW recomputation |
 | Live telemetry | 40 of 40 simulated readings landed; 3 ALARM readings logged | 60 of 60 IoT messages loaded; median lag 21 s at first validation |

@@ -121,11 +121,11 @@ VARIANTS = {
         nodes={**{k: v for k, v in NODES.items() if k not in SF_ONLY_DROP}, **SF_ONLY_NODES},
         connectors=[c for i, c in enumerate(CONNECTORS) if i in SF_ONLY_KEEP] + SF_ONLY_CONNECTORS,
         zones=SF_ONLY_ZONES, subtitle='Snowflake-only build: ML, Cortex AI and SPCS',
-        notes=('SFSEAPAC.SG_DEMO43 · REPAIR_VIETNAM_MAINTENANCE_20261008_SF · synthetic demo data',
+        notes=('SFSEAPAC.SG_DEMO43 · VIETNAM_MAINTENANCE_SNOWFLAKE · synthetic demo data',
                'Every flow shown was validated end to end (demo_contract.json, builds.snowflake).')),
 }
 
-NOTES = ('SFSEAPAC.SG_DEMO43 · REPAIR_VIETNAM_MAINTENANCE_20261007_C · synthetic demo data',
+NOTES = ('SFSEAPAC.SG_DEMO43 · VIETNAM_MAINTENANCE_AWS · synthetic demo data',
          'Every flow shown was validated end to end on 2026-10-08 (demo_contract.json), incl. QuickSight Q.')
 
 

@@ -58,7 +58,9 @@ export default function HomePage() {
   }, [attempt]);
 
   const isAws = (data?.platform ?? 'aws') === 'aws';
-  const diagram = isAws ? '/architecture-aws.html' : '/architecture-snowflake.html';
+  const awsDiagram = { key: 'aws', title: 'AWS + Snowflake', src: '/architecture-aws.html' };
+  const sfDiagram = { key: 'snowflake', title: 'Snowflake Only', src: '/architecture-snowflake.html' };
+  const diagrams = isAws ? [awsDiagram, sfDiagram] : [sfDiagram, awsDiagram];
   const kpiVal = (title: string) => data?.kpiCards.find((card) => card.title === title)?.value ?? 'Unavailable';
   const executive = (
     <div className="space-y-6">
@@ -168,9 +170,13 @@ export default function HomePage() {
   );
   const architecture = (
     <div className="space-y-4">
-      <h2 className="font-semibold">Architecture</h2>
-      <iframe src={diagram} title="Architecture diagram" className="h-[620px] w-full rounded border border-slate-200" />
-      <p className="text-sm text-slate-600">Hover a component for details. <a className="underline" href={diagram} target="_blank" rel="noreferrer">Open full screen</a></p>
+      {diagrams.map((d, i) => (
+        <div key={d.key} className="space-y-2">
+          <h2 className="font-semibold">Architecture: {d.title}{i === 0 ? ' (this deployment)' : ''}</h2>
+          <iframe src={d.src} title={`${d.title} architecture diagram`} className="h-[620px] w-full rounded border border-slate-200" />
+          <p className="text-sm text-slate-600">Hover a component for details. <a className="underline" href={d.src} target="_blank" rel="noreferrer">Open full screen</a></p>
+        </div>
+      ))}
       <h2 className="font-semibold">Implementation and validation status</h2>
       <p>Core source: synthetic machines, daily observations and spares. Curated dynamic tables compute numerator/denominator metrics and are suspended after on-demand initialization.</p>
       <p>Application: Next.js server queries the explicit curated contract. Request time and source observation watermark are separate.</p>

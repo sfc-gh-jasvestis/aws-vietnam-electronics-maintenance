@@ -1,7 +1,7 @@
 """Run 05_ml.sql and/or 06_intelligence.sql against an isolated pilot database.
 
 Only validated identifiers and an email address are substituted into the SQL.
-Usage: python snowflake/run_intelligence.py --database REPAIR_..._C --alert-email you@example.com \
+Usage: python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_AWS --alert-email you@example.com \
        [--platform snowflake|aws] [--files 06_intelligence.sql]
 --platform snowflake runs 08_native_telemetry.sql first (no AWS needed); aws expects
 aws/setup_aws.py to have created RAW.LIVE_TELEMETRY and its Snowpipe.

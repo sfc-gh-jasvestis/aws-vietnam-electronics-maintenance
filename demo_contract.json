@@ -2,7 +2,7 @@
   "version": 1,
   "repo": "aws-vietnam-electronics-maintenance",
   "canonical_database": "VIETNAM_ELECTRONICS_MAINTENANCE",
-  "validation_database_prefix": "REPAIR_VIETNAM_MAINTENANCE_",
+  "validation_database_prefix": "VIETNAM_MAINTENANCE_",
   "operation": "on-demand",
   "data_classification": "synthetic demonstration only",
   "currency": "VND",
@@ -115,17 +115,17 @@
   },
   "builds": {
     "snowflake": {
-      "database": "REPAIR_VIETNAM_MAINTENANCE_20261008_SF",
+      "database": "VIETNAM_MAINTENANCE_SNOWFLAKE",
       "app_setting": "DEMO_PLATFORM=snowflake",
       "live_telemetry": "VALIDATED 2026-10-08: APP.SIMULATE_TELEMETRY(40) inserted 40 rows (0 unknown machines); LOG_LIVE_ALARMS logged 3 ALARM readings",
       "memo": "VALIDATED 2026-10-08: /api/ask memo 200, provider Snowflake Cortex AI_COMPLETE (claude-sonnet-4-5)",
       "core_and_ml": "VALIDATED 2026-10-08: same KPIs as aws build (181 stops, 20 machines); top risk MAC-0013 0.9653",
-      "app": "VALIDATED 2026-10-08: /api/data (platform=snowflake), /api/ask, /api/agent 200 through ingress; image vn-maint-app:v3"
+      "app": "VALIDATED 2026-10-08: /api/data (platform=snowflake), /api/ask, /api/agent 200 through ingress; image vn-maint-app:v4"
     },
     "aws": {
-      "database": "REPAIR_VIETNAM_MAINTENANCE_20261007_C",
+      "database": "VIETNAM_MAINTENANCE_AWS",
       "app_setting": "DEMO_PLATFORM=aws",
-      "regression": "VALIDATED 2026-10-08 on vn-maint-app:v3: /api/data (platform=aws, 60 msgs, median lag 19 s), /api/ask memo provider Amazon Bedrock, /api/agent 200",
+      "regression": "VALIDATED 2026-10-08 on vn-maint-app:v4: /api/data (platform=aws, 60 msgs, median lag 19 s), /api/ask memo provider Amazon Bedrock, /api/agent 200",
       "capabilities": "see required_capabilities"
     }
   }

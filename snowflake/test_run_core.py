@@ -10,14 +10,14 @@ class CoreSafetyTests(unittest.TestCase):
 
     def test_injected_identifier_rejected(self):
         with self.assertRaises(ValueError):
-            validate_target('REPAIR_VIETNAM_MAINTENANCE_TEST', 'WH;DROP DATABASE X')
+            validate_target('VIETNAM_MAINTENANCE_TEST', 'WH;DROP DATABASE X')
 
     def test_wrong_account_stops_before_writes(self):
         connection = Mock()
         cursor = connection.cursor.return_value
         cursor.fetchone.return_value = ('SNOWHOUSE', 'WRONG', 'PUBLIC.AWS_US_WEST_2')
         with self.assertRaisesRegex(RuntimeError, 'identity mismatch'):
-            run(connection, 'REPAIR_VIETNAM_MAINTENANCE_TEST', 'TEST_WH')
+            run(connection, 'VIETNAM_MAINTENANCE_TEST', 'TEST_WH')
         self.assertEqual(cursor.execute.call_count, 1)
         connection.close.assert_called_once()
 
@@ -28,7 +28,7 @@ class CoreSafetyTests(unittest.TestCase):
         cursor.description = [('name',), ('size',), ('auto_suspend',)]
         cursor.fetchall.return_value = [('TEST_WH', 'Large', 60)]
         with self.assertRaisesRegex(RuntimeError, 'X-Small'):
-            run(connection, 'REPAIR_VIETNAM_MAINTENANCE_TEST', 'TEST_WH')
+            run(connection, 'VIETNAM_MAINTENANCE_TEST', 'TEST_WH')
         self.assertEqual(cursor.execute.call_count, 2)
 
 if __name__ == '__main__':

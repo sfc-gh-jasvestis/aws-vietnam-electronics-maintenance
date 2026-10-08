@@ -24,8 +24,8 @@ def checked_identifier(value):
 def validate_target(database, warehouse):
     checked_identifier(database)
     checked_identifier(warehouse)
-    if not database.startswith('REPAIR_VIETNAM_MAINTENANCE_'):
-        raise ValueError('Only isolated REPAIR_VIETNAM_MAINTENANCE_ databases are accepted')
+    if not database.startswith('VIETNAM_MAINTENANCE_'):
+        raise ValueError('Only isolated VIETNAM_MAINTENANCE_ databases are accepted')
 
 
 def connect(name):
