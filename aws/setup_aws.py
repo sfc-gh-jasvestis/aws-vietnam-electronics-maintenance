@@ -57,7 +57,8 @@ def desc(cursor, sql):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--connection', default='demo43')
+    ap.add_argument('--connection', required=True, help='Snowflake connection name')
+    ap.add_argument('--expect-account', help='Optional account locator guard; stops before writes on mismatch')
     ap.add_argument('--database', required=True)
     ap.add_argument('--account', required=True)
     ap.add_argument('--region', default='us-west-2')
@@ -100,7 +101,7 @@ def main():
     con = connect(args.connection)
     cur = con.cursor()
     cur.execute('SELECT CURRENT_ACCOUNT()')
-    if cur.fetchone()[0] != 'YFB94191':
+    if args.expect_account and cur.fetchone()[0] != args.expect_account.upper():
         raise RuntimeError('Snowflake identity mismatch')
     cur.execute(f"""CREATE STORAGE INTEGRATION IF NOT EXISTS {n['storage_int']} TYPE = EXTERNAL_STAGE
         STORAGE_PROVIDER = 'S3' ENABLED = TRUE STORAGE_AWS_ROLE_ARN = '{sf_role_arn}'

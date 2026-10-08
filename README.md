@@ -128,11 +128,11 @@ Both modes share the same core. They differ in three places, and the app's `DEMO
 
 ```bash
 # 1. Core data and dynamic tables (guarded: new isolated database only)
-python snowflake/run_core.py --database VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
+python snowflake/run_core.py --database VIETNAM_MAINTENANCE_X --warehouse <XS_WAREHOUSE> --connection <CONNECTION> --apply
 # 2. Native telemetry, ML, search, semantic view, agent, alert and task graph
-python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform snowflake --warehouse <XS_WAREHOUSE> --connection <CONNECTION> --alert-email you@example.com
 # 3. App on SPCS with DEMO_PLATFORM=snowflake (push the image first)
-python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com --files 07_deploy_app.sql
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform snowflake --warehouse <XS_WAREHOUSE> --connection <CONNECTION> --alert-email you@example.com --files 07_deploy_app.sql --compute-pool <COMPUTE_POOL>
 ```
 
 During the demo:
@@ -146,13 +146,13 @@ Afterwards, drop the database or run `ALTER SERVICE APP.REPAIR_VN_MAINT_APP SUSP
 
 ```bash
 # 1. Core data and dynamic tables (guarded: new isolated database only)
-python snowflake/run_core.py --database VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
+python snowflake/run_core.py --database VIETNAM_MAINTENANCE_X --warehouse <XS_WAREHOUSE> --connection <CONNECTION> --apply
 # 2. AWS ingestion and Bedrock (dry run first, then --apply)
-python aws/setup_aws.py --database VIETNAM_MAINTENANCE_X --account <aws-account> --apply
+python aws/setup_aws.py --database VIETNAM_MAINTENANCE_X --account <AWS_ACCOUNT_ID> --connection <CONNECTION> --apply
 # 3. ML, search, semantic view, agent, alert and task graph
-python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform aws --warehouse <XS_WAREHOUSE> --connection <CONNECTION> --alert-email you@example.com
 # 4. App on SPCS with DEMO_PLATFORM=aws (push the image first)
-python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com --files 07_deploy_app.sql
+python snowflake/run_intelligence.py --database VIETNAM_MAINTENANCE_X --platform aws --warehouse <XS_WAREHOUSE> --connection <CONNECTION> --alert-email you@example.com --files 07_deploy_app.sql --compute-pool <COMPUTE_POOL>
 # 5. QuickSight dashboard and Q topic (needs an existing Snowflake data source)
 python quicksight/build_dashboards.py --database VIETNAM_MAINTENANCE_X ... --apply --update --with-topic
 ```
@@ -181,11 +181,9 @@ Industry research and Snowflake customer outcomes:
 - **Scania** (Snowflake customer) streams data from 600,000 connected vehicles (150 million streaming messages) into Snowflake. It has "been able to reduce downtime for customers by recommending maintenance based on vehicle operation and workshop availability" -- [Snowflake Manufacturing Data Cloud press release](https://www.snowflake.com/en/news/press-releases/snowflake-launches-manufacturing-data-cloud-to-improve-supply-chain-performance-and-power-smart-manufacturing/)
 - **Siemens** (Snowflake customer) runs the Siemens Data Cloud on Snowflake: 600+ projects, 4,800 data warehouses integrated, and more than 50 ERP systems replicated at over 1.5 billion changes per day. This is a data-platform reference, not a predictive-maintenance outcome -- [snowflake.com/customers/siemens](https://www.snowflake.com/en/customers/all-customers/case-study/siemens-1/)
 
-Each figure above was checked against its source on 2026-10-08. Earlier figures whose sources were inaccessible or did not contain the claim (a VEIA facility and downtime share, McKinsey maintenance-cost ranges, IPC SMT spare-parts values, a Bosch downtime reduction) were removed and must not be reintroduced without an exact source passage.
-
 ## Key Demo Numbers
 
-These figures are synthetic and come from the validated builds.
+These figures are synthetic and come from the seeded demo data.
 
 - **20 machines**, 1,800 machine-days over 90 days, across 5 locations
 - **Fleet uptime 98.65%**; per-machine uptime ranges from 94.6% to 99.96%
@@ -193,21 +191,6 @@ These figures are synthetic and come from the validated builds.
 - **Failure-risk model** out-of-time holdout: precision 0.60, recall 0.53 at a 0.5 threshold, against a 0.38 base rate. The top machine is MAC-0013, at 96.53%
 - **14-day downtime forecast** with prediction intervals; **25 of 320** machine-days flagged as vibration anomalies
 - **14 SOPs** indexed for Cortex Search and cited by ID in agent answers
-
-## Validation
-
-Both builds were validated end to end on 2026-10-08 in isolated pilot databases on `demo43` (AWS us-west-2). Evidence is in `demo_contract.json` (`builds`, `required_capabilities`).
-
-| Check | Snowflake Only (`VIETNAM_MAINTENANCE_SNOWFLAKE`) | AWS + Snowflake (`VIETNAM_MAINTENANCE_AWS`) |
-|---|---|---|
-| Core KPIs and ML | Same KPIs (181 stops); MAC-0013 at 96.53% | Same; KPIs reconciled to a RAW recomputation |
-| Live telemetry | 40 of 40 simulated readings landed; 3 ALARM readings logged | 60 of 60 IoT messages loaded; median lag 21 s at first validation |
-| Action memo | `/api/ask` memo returned by Cortex AI_COMPLETE | `/api/ask` memo returned by Amazon Bedrock |
-| Agent and search | `/api/agent` answers with SOP citations | Same |
-| App | `/api/data`, `/api/ask` and `/api/agent` return 200 through SPCS ingress | Same |
-| QuickSight | Not used | Dashboard v5 renders with 5 visuals. Amazon Q, checked by a person, matches the top 5 in `ML.FAILURE_RISK_SCORES` |
-
-Dropped from the legacy design: SageMaker (Snowflake ML does the modelling), Glue (replaced by dynamic tables) and Iceberg (not needed). None of them is claimed.
 
 ## License
 

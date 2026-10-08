@@ -50,7 +50,7 @@ NODES = {
     'ML': ('Snowflake ML', '3 models', 8, 4, 'compute',
            'CLASSIFICATION failure risk to ML.FAILURE_RISK_SCORES (time-based holdout), 14-day downtime FORECAST, ANOMALY_DETECTION to ML.VIBRATION_ANOMALIES.'),
     'APP': ('Next.js app', 'SPCS service', 10, 4, 'app',
-            'APP.REPAIR_VN_MAINT_APP on compute pool SEA_DEMOS_VIETNAM_POOL. Routes /api/data, /api/agent, /api/ask.'),
+            'APP.REPAIR_VN_MAINT_APP. Routes /api/data, /api/agent, /api/ask.'),
     'UDF': ('Bedrock UDF', 'external access', 11, 4, 'compute',
             'Python UDF APP.BEDROCK_GENERATE calls Bedrock with boto3 through external access integration REPAIR_VN_MAINT_BEDROCK_EAI. Used by /api/ask for the action memo.'),
     'BED': ('Amazon Bedrock', 'Claude Sonnet 4.5', 12, 4, 'consumer',
@@ -91,7 +91,7 @@ CONNECTORS = [
 ]
 
 ZONES = [
-    ('zone-bg-ingestion', 40, 30, 440, 160, 'AWS INGESTION', 'account 018437500440 · us-west-2'),
+    ('zone-bg-ingestion', 40, 30, 440, 160, 'AWS INGESTION', 'your AWS account · us-west-2'),
     ('zone-bg-snowflake', 482, 30, 768, 640, 'SNOWFLAKE', ''),
     ('zone-bg-consumers', 1252, 30, 108, 640, 'AWS AI + BI', ''),
 ]
@@ -121,11 +121,11 @@ VARIANTS = {
         nodes={**{k: v for k, v in NODES.items() if k not in SF_ONLY_DROP}, **SF_ONLY_NODES},
         connectors=[c for i, c in enumerate(CONNECTORS) if i in SF_ONLY_KEEP] + SF_ONLY_CONNECTORS,
         zones=SF_ONLY_ZONES, subtitle='Snowflake-only build: ML, Cortex AI and SPCS',
-        notes=('SFSEAPAC.SG_DEMO43 · VIETNAM_MAINTENANCE_SNOWFLAKE · synthetic demo data',
+        notes=('VIETNAM_MAINTENANCE_SNOWFLAKE · synthetic demo data',
                'Every flow shown was validated end to end (demo_contract.json, builds.snowflake).')),
 }
 
-NOTES = ('SFSEAPAC.SG_DEMO43 · VIETNAM_MAINTENANCE_AWS · synthetic demo data',
+NOTES = ('VIETNAM_MAINTENANCE_AWS · synthetic demo data',
          'Every flow shown was validated end to end on 2026-10-08 (demo_contract.json), incl. QuickSight Q.')
 
 

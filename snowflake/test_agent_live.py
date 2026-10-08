@@ -9,7 +9,7 @@ from run_core import connect
 
 DB = sys.argv[1]
 QUESTION = sys.argv[2] if len(sys.argv) > 2 else 'Which 3 machines have the most unplanned downtime hours, and what SOP applies to the top one?'
-con = connect('demo43')
+con = connect(sys.argv[3] if len(sys.argv) > 3 else 'default')
 host = con.host
 url = f'https://{host}/api/v2/databases/{DB}/schemas/APP/agents/MAINTENANCE_AGENT:run'
 body = {'messages': [{'role': 'user', 'content': [{'type': 'text', 'text': QUESTION}]}]}

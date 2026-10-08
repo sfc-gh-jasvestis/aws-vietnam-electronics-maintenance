@@ -10,7 +10,8 @@ from setup_aws import ident, names
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--connection', default='demo43')
+    ap.add_argument('--connection', required=True, help='Snowflake connection name')
+    ap.add_argument('--expect-account', help='Optional account locator guard; stops before writes on mismatch')
     ap.add_argument('--database', required=True)
     ap.add_argument('--account', required=True)
     ap.add_argument('--region', default='us-west-2')
@@ -44,7 +45,7 @@ def main():
     iam.delete_user(UserName=user)
     cur = connect(args.connection).cursor()
     cur.execute('SELECT CURRENT_ACCOUNT()')
-    if cur.fetchone()[0] != 'YFB94191':
+    if args.expect_account and cur.fetchone()[0] != args.expect_account.upper():
         raise RuntimeError('Snowflake identity mismatch')
     for stmt in [f'DROP PIPE IF EXISTS {db}.RAW.LIVE_TELEMETRY_PIPE', f'DROP STAGE IF EXISTS {db}.RAW.IOT_LANDING',
                  f'DROP FUNCTION IF EXISTS {db}.APP.BEDROCK_GENERATE(VARCHAR)',

@@ -2,7 +2,6 @@
   "version": 1,
   "repo": "aws-vietnam-electronics-maintenance",
   "canonical_database": "VIETNAM_ELECTRONICS_MAINTENANCE",
-  "validation_database_prefix": "VIETNAM_MAINTENANCE_",
   "operation": "on-demand",
   "data_classification": "synthetic demonstration only",
   "currency": "VND",
@@ -100,32 +99,27 @@
   },
   "freshness": "MAX(EVENT_DATE) is an observation watermark; requestedAt is not freshness",
   "required_capabilities": {
-    "core_pipeline": "VALIDATED 2026-10-08 on isolated demo43 snapshot; KPIs reconciled to RAW recomputation",
+    "core_pipeline": "Curated KPIs reconcile to a RAW recomputation",
     "remaining_useful_life_model": "REPLACED by 7-day failure-risk classifier (no run-to-failure history); out-of-time holdout precision 0.60 / recall 0.53 vs 0.38 base rate",
-    "forecast_and_anomaly": "VALIDATED: 14-day fleet downtime FORECAST; vibration ANOMALY_DETECTION (train 75 days, detect last 15; 25 of 320 machine-days flagged)",
-    "search": "VALIDATED: Cortex Search SEARCH.MAINTENANCE_SOP_SEARCH over 14 synthetic SOPs (one per equipment class and failure mode)",
-    "semantic_analytics": "VALIDATED: semantic view APP.MAINTENANCE_ANALYTICS (stops by type sum to 181, matching KPI) and Cortex Agent APP.MAINTENANCE_AGENT using analyst + search tools",
-    "grounded_ai": "VALIDATED: agent answers return generated SQL and SOP citations; action memo by Amazon Bedrock Claude via external-access UDF APP.BEDROCK_GENERATE",
-    "quicksight": "VALIDATED: v5 rendered in cloud (KPIs, daily uptime, downtime by machine, failure risk, IoT message count) via PAT-only service user",
-    "quicksight_q": "VALIDATED 2026-10-08 in the Amazon Quick console: 'Which machine has the highest 7-day failure probability?' returned MAC-0013 96.53% and the same top 5 (MAC-0005, MAC-0014, MAC-0001, MAC-0008) as ML.FAILURE_RISK_SCORES",
-    "aws_ingestion": "VALIDATED: IoT Core rule -> S3 -> Snowpipe AUTO_INGEST into RAW.LIVE_TELEMETRY (60 of 60 messages loaded, median 21 s lag)",
-    "notifications": "VALIDATED: APP.LIVE_ALARM_ALERT logs new ALARM readings to APP.ALERT_LOG and emails via SYSTEM$SEND_EMAIL; alert and tasks suspended between demos",
-    "orchestration": "VALIDATED: task graph APP.TASK_REFRESH_CURATED -> APP.TASK_RESCORE_RISK run on demand (EXECUTE TASK)",
-    "app_deployment": "VALIDATED: SPCS service APP.REPAIR_VN_MAINT_APP on SEA_DEMOS_VIETNAM_POOL; /api/data, /api/ask (Bedrock memo) and /api/agent return 200 through ingress"
+    "forecast_and_anomaly": "14-day fleet downtime FORECAST; vibration ANOMALY_DETECTION (train 75 days, detect last 15; 25 of 320 machine-days flagged)",
+    "search": "Cortex Search SEARCH.MAINTENANCE_SOP_SEARCH over 14 synthetic SOPs (one per equipment class and failure mode)",
+    "semantic_analytics": "semantic view APP.MAINTENANCE_ANALYTICS (stops by type sum to 181, matching KPI) and Cortex Agent APP.MAINTENANCE_AGENT using analyst + search tools",
+    "grounded_ai": "agent answers return generated SQL and SOP citations; action memo by Amazon Bedrock Claude via external-access UDF APP.BEDROCK_GENERATE",
+    "quicksight": "DIRECT_QUERY dashboard (KPIs, daily uptime, downtime by machine, failure risk, IoT message count) through a read-only Snowflake service user",
+    "quicksight_q": "Amazon Q topic over the curated datasets for natural-language questions",
+    "aws_ingestion": "IoT Core rule -> S3 -> Snowpipe AUTO_INGEST into RAW.LIVE_TELEMETRY",
+    "notifications": "APP.LIVE_ALARM_ALERT logs new ALARM readings to APP.ALERT_LOG and emails via SYSTEM$SEND_EMAIL; alert and tasks suspended between demos",
+    "orchestration": "task graph APP.TASK_REFRESH_CURATED -> APP.TASK_RESCORE_RISK run on demand (EXECUTE TASK)",
+    "app_deployment": "SPCS service APP.REPAIR_VN_MAINT_APP; routes /api/data, /api/ask, /api/agent"
   },
   "builds": {
     "snowflake": {
       "database": "VIETNAM_MAINTENANCE_SNOWFLAKE",
-      "app_setting": "DEMO_PLATFORM=snowflake",
-      "live_telemetry": "VALIDATED 2026-10-08: APP.SIMULATE_TELEMETRY(40) inserted 40 rows (0 unknown machines); LOG_LIVE_ALARMS logged 3 ALARM readings",
-      "memo": "VALIDATED 2026-10-08: /api/ask memo 200, provider Snowflake Cortex AI_COMPLETE (claude-sonnet-4-5)",
-      "core_and_ml": "VALIDATED 2026-10-08: same KPIs as aws build (181 stops, 20 machines); top risk MAC-0013 0.9653",
-      "app": "VALIDATED 2026-10-08: /api/data (platform=snowflake), /api/ask, /api/agent 200 through ingress; image vn-maint-app:v4"
+      "app_setting": "DEMO_PLATFORM=snowflake"
     },
     "aws": {
       "database": "VIETNAM_MAINTENANCE_AWS",
       "app_setting": "DEMO_PLATFORM=aws",
-      "regression": "VALIDATED 2026-10-08 on vn-maint-app:v4: /api/data (platform=aws, 60 msgs, median lag 19 s), /api/ask memo provider Amazon Bedrock, /api/agent 200",
       "capabilities": "see required_capabilities"
     }
   }

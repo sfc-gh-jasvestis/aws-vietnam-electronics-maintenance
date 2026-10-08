@@ -43,7 +43,7 @@ def connect(name):
     raise RuntimeError('Named local Snowflake connection not found')
 
 
-def run(connection, database, warehouse):
+def run(connection, database, warehouse, expect_account=None):
     from snowflake.connector.util_text import split_statements
     validate_target(database, warehouse)
     evidence = []
@@ -52,7 +52,7 @@ def run(connection, database, warehouse):
     try:
         cursor.execute('SELECT CURRENT_ACCOUNT_NAME(), CURRENT_ACCOUNT(), CURRENT_REGION()')
         identity = cursor.fetchone()
-        if identity != ('SG_DEMO43', 'YFB94191', 'PUBLIC.AWS_US_WEST_2'):
+        if expect_account and identity[1] != expect_account.upper():
             raise RuntimeError('Snowflake identity mismatch; no writes attempted')
         cursor.execute('SHOW WAREHOUSES')
         names = [column[0].lower() for column in cursor.description]
@@ -66,7 +66,7 @@ def run(connection, database, warehouse):
             raise RuntimeError('Target already exists; choose a new isolated namespace')
         cursor.execute('SET DEMO_DB = %s', (database,))
         cursor.execute('SET DEMO_WH = %s', (warehouse,))
-        cursor.execute("ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = 60, QUERY_TAG = 'country-repair-vietnam-core'")
+        cursor.execute("ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = 60, QUERY_TAG = 'vietnam-maintenance-core'")
         for filename in FILES:
             sql = (Path(__file__).resolve().parent / filename).read_text()
             # DT WAREHOUSE is a DDL property and rejects IDENTIFIER($variable).
@@ -122,7 +122,8 @@ def run(connection, database, warehouse):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--connection', default='demo43')
+    parser.add_argument('--connection', required=True, help='Snowflake connection name')
+    parser.add_argument('--expect-account', help='Optional account locator guard; stops before writes on mismatch')
     parser.add_argument('--database', required=True)
     parser.add_argument('--warehouse', required=True)
     parser.add_argument('--apply', action='store_true')
@@ -131,7 +132,7 @@ def main():
     if not args.apply:
         print(json.dumps({'mode': 'dry-run', 'database': args.database, 'warehouse': args.warehouse, 'scripts': FILES}))
         return
-    print(json.dumps(run(connect(args.connection), args.database, args.warehouse), indent=2, default=str))
+    print(json.dumps(run(connect(args.connection), args.database, args.warehouse, args.expect_account), indent=2, default=str))
 
 
 if __name__ == '__main__':

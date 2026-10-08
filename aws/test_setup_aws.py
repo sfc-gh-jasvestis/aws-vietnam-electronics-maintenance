@@ -8,8 +8,8 @@ from setup_aws import ident, names
 
 class SetupAwsTests(unittest.TestCase):
     def test_names_are_scoped_to_prefix_account_region(self):
-        n = names('repair-vn-maint', '018437500440', 'us-west-2')
-        self.assertEqual(n['bucket'], 'repair-vn-maint-018437500440-us-west-2')
+        n = names('repair-vn-maint', '123456789012', 'us-west-2')
+        self.assertEqual(n['bucket'], 'repair-vn-maint-123456789012-us-west-2')
         self.assertEqual(n['storage_int'], 'REPAIR_VN_MAINT_S3_INT')
         self.assertEqual(n['iot_rule'], 'repair_vn_maint_telemetry')
 

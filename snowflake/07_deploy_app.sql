@@ -6,13 +6,13 @@
 --   docker build --platform linux/amd64 -t <repository_url>/vn-maint-app:v4 app
 --   docker push <repository_url>/vn-maint-app:v4
 -- Existing service: rerun the spec below as ALTER SERVICE APP.REPAIR_VN_MAINT_APP FROM SPECIFICATION $$...$$.
--- Uses the existing compute pool SEA_DEMOS_VIETNAM_POOL (shared, already running).
+-- Runs on an existing compute pool passed as --compute-pool.
 -- ============================================================================
 CREATE IMAGE REPOSITORY IF NOT EXISTS APP.IMAGES;
 
 CREATE SERVICE IF NOT EXISTS APP.REPAIR_VN_MAINT_APP
   -- DEMO_PLATFORM (from --platform): snowflake = Cortex memo + native feed; aws = Bedrock + IoT
-  IN COMPUTE POOL SEA_DEMOS_VIETNAM_POOL
+  IN COMPUTE POOL __COMPUTE_POOL__
   QUERY_WAREHOUSE = __DEMO_WH__
   FROM SPECIFICATION
 $$
