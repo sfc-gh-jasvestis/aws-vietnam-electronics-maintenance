@@ -107,7 +107,7 @@
     "semantic_analytics": "VALIDATED: semantic view APP.MAINTENANCE_ANALYTICS (stops by type sum to 181, matching KPI) and Cortex Agent APP.MAINTENANCE_AGENT using analyst + search tools",
     "grounded_ai": "VALIDATED: agent answers return generated SQL and SOP citations; action memo by Amazon Bedrock Claude via external-access UDF APP.BEDROCK_GENERATE",
     "quicksight": "VALIDATED: v5 rendered in cloud (KPIs, daily uptime, downtime by machine, failure risk, IoT message count) via PAT-only service user",
-    "quicksight_q": "NOT_VALIDATED: topic with equipment and risk datasets created and refreshed; Q answers need a manual check in the QuickSight console",
+    "quicksight_q": "VALIDATED 2026-10-08 in the Amazon Quick console: 'Which machine has the highest 7-day failure probability?' returned MAC-0013 96.53% and the same top 5 (MAC-0005, MAC-0014, MAC-0001, MAC-0008) as ML.FAILURE_RISK_SCORES",
     "aws_ingestion": "VALIDATED: IoT Core rule -> S3 -> Snowpipe AUTO_INGEST into RAW.LIVE_TELEMETRY (60 of 60 messages loaded, median 21 s lag)",
     "notifications": "VALIDATED: APP.LIVE_ALARM_ALERT logs new ALARM readings to APP.ALERT_LOG and emails via SYSTEM$SEND_EMAIL; alert and tasks suspended between demos",
     "orchestration": "VALIDATED: task graph APP.TASK_REFRESH_CURATED -> APP.TASK_RESCORE_RISK run on demand (EXECUTE TASK)",
