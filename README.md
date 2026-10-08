@@ -1,14 +1,28 @@
-# Predictive Maintenance - Vietnam Electronics (AWS + Snowflake)
+# Predictive Maintenance - Vietnam Electronics (Snowflake, optionally with AWS)
 
-> Repair branch, validated end to end on 2026-10-08 in an isolated pilot database (`demo43`, AWS us-west-2).
-> All data is synthetic. Every capability below was run and checked. See `demo_contract.json` for evidence.
-> QuickSight Q answers were also checked in the Amazon Quick console and match Snowflake.
-> Interactive diagram: [docs/architecture.html](docs/architecture.html) (regenerate with `python3 docs/build_architecture.py`); the app shows it on the Architecture & Data tab.
-> QuickSight objects must be shared with the QuickSight user who signs in (`--principal-arn`); otherwise the console shows nothing.
+> Validated end to end on 2026-10-08 in isolated pilot databases on `demo43` (AWS us-west-2), in two build options.
+> All data is synthetic. Every capability below was run and checked. See `demo_contract.json` (`builds`) for evidence.
 
 The demo covers 20 synthetic SMT machines in Vietnam (Ho Chi Minh City, Hanoi, Binh Duong, Dong Nai, Can Tho) over 90 days, plus live simulated telemetry.
 
-## Architecture
+## Choose your build
+
+Both options share the same core: synthetic data, dynamic tables, Snowflake ML, Cortex Search, the semantic view and Cortex Agent, the alert with email, the task graph and the Next.js app on SPCS. They differ in three places.
+
+| Layer | A. Snowflake only | B. AWS + Snowflake |
+|---|---|---|
+| Live telemetry | `CALL APP.SIMULATE_TELEMETRY(n)` inserts simulated readings into `RAW.LIVE_TELEMETRY` (optional task every minute). This simulates a sensor feed; it is not Snowpipe Streaming | `aws/publish_telemetry.py` to AWS IoT Core, then S3, SQS and Snowpipe AUTO_INGEST |
+| Action memo (LLM) | Cortex `AI_COMPLETE('claude-sonnet-4-5')` | Amazon Bedrock Claude Sonnet 4.5 through the external-access UDF `APP.BEDROCK_GENERATE` |
+| BI and natural-language questions | The SPCS app is the dashboard; questions go to the Cortex Agent | Also a QuickSight DIRECT_QUERY dashboard and a Q topic |
+| Needs | Snowflake only | Snowflake, an AWS account and QuickSight Enterprise |
+| App setting | `DEMO_PLATFORM: snowflake` | `DEMO_PLATFORM: aws` |
+| Diagram | [docs/architecture-snowflake.html](docs/architecture-snowflake.html) | [docs/architecture-aws.html](docs/architecture-aws.html) |
+
+The app reads `DEMO_PLATFORM` from its SPCS spec. It sets the memo provider, the Live IoT tab and the diagram on the Architecture & Data tab. Regenerate both diagrams with `python3 docs/build_architecture.py`.
+
+## Architecture (B. AWS + Snowflake)
+
+Option A is the same diagram without the AWS subgraph: `APP.SIMULATE_TELEMETRY` writes to `RAW.LIVE_TELEMETRY`, and the app calls `AI_COMPLETE` instead of the Bedrock UDF.
 
 ```mermaid
 flowchart LR
@@ -45,26 +59,40 @@ flowchart LR
 
 ## What is implemented and validated
 
+Shared by both options:
+
 | Capability | Objects | Evidence |
 |---|---|---|
-| Synthetic data | 20 machines, 1,800 machine-days, spare parts | Seeded, so rebuilds reproduce it; per-machine uptime ranges from 94.6% to 99.96% |
+| Synthetic data | 20 machines, 1,800 machine-days, spare parts | Seeded: both builds reproduce the same KPIs (181 unplanned stops); per-machine uptime ranges from 94.6% to 99.96% |
 | Dynamic tables | `CURATED.KPI_SUMMARY`, `PERFORMANCE_SUMMARY`, `DOWNTIME_CAUSES`, `TREND_ANALYSIS` | `run_core.py` recomputes KPIs from RAW and reconciles them |
-| Failure-risk model | `ML.FAILURE_RISK_MODEL` / `_SCORES` / `_HOLDOUT_METRICS` | Out-of-time holdout: precision 0.60, recall 0.53, base rate 0.38 |
+| Failure-risk model | `ML.FAILURE_RISK_MODEL` / `_SCORES` / `_HOLDOUT_METRICS` | Out-of-time holdout: precision 0.60, recall 0.53, base rate 0.38. Top machine MAC-0013 at 96.53% in both builds |
 | Downtime forecast | `ML.DOWNTIME_FORECAST` | 14 days with prediction intervals |
 | Anomaly detection | `ML.VIBRATION_ANOMALIES` | 25 of 320 machine-days flagged (last 15 days) |
 | Cortex Search | `SEARCH.MAINTENANCE_SOP_SEARCH` | 14 synthetic SOPs, cited by ID in agent answers |
 | Semantic view and agent | `APP.MAINTENANCE_ANALYTICS`, `APP.MAINTENANCE_AGENT` | Stops by type sum to 181, matching the KPI |
-| IoT ingestion | IoT rule, then S3, then Snowpipe, into `RAW.LIVE_TELEMETRY` | 60 of 60 messages loaded; median lag 21 s |
-| Bedrock | `APP.BEDROCK_GENERATE` (external access) | Writes the action memo in the app |
 | Alert and email | `APP.LIVE_ALARM_ALERT`, `APP.ALERT_LOG` | New ALARM readings logged and emailed |
 | Task graph | `APP.TASK_REFRESH_CURATED`, then `APP.TASK_RESCORE_RISK` | Both succeeded on demand |
-| App (SPCS) | `APP.REPAIR_VN_MAINT_APP` | `/api/data`, `/api/ask` and `/api/agent` return 200 through ingress |
+| App (SPCS) | `APP.REPAIR_VN_MAINT_APP` | `/api/data`, `/api/ask` and `/api/agent` return 200 through ingress in both builds |
+
+A. Snowflake only (`REPAIR_VIETNAM_MAINTENANCE_20261008_SF`):
+
+| Capability | Objects | Evidence |
+|---|---|---|
+| Native telemetry | `APP.SIMULATE_TELEMETRY`, `APP.TASK_SIMULATE_TELEMETRY` (suspended) | 40 of 40 readings inserted, all for known machines; 3 ALARM readings logged by the alert procedure |
+| Cortex memo | `AI_COMPLETE('claude-sonnet-4-5')` | `/api/ask` memo returns with provider "Snowflake Cortex AI_COMPLETE" |
+
+B. AWS + Snowflake (`REPAIR_VIETNAM_MAINTENANCE_20261007_C`):
+
+| Capability | Objects | Evidence |
+|---|---|---|
+| IoT ingestion | IoT rule, then S3, then Snowpipe, into `RAW.LIVE_TELEMETRY` | 60 of 60 messages loaded; median lag 21 s at first validation (19 s on the latest app check) |
+| Bedrock | `APP.BEDROCK_GENERATE` (external access) | `/api/ask` memo returns with provider "Amazon Bedrock" |
 | QuickSight dashboard | `quicksight/build_dashboards.py` | v5 rendered in the cloud, with 5 visuals |
-| QuickSight Q | `repair-vn-maint-topic` | Topic built and refreshed; **answers not yet checked by a person** |
+| QuickSight Q | `repair-vn-maint-topic` | Checked by a person in the Amazon Quick console; the top-5 risk answer matches `ML.FAILURE_RISK_SCORES`. Objects must be shared with the signed-in QuickSight user (`--principal-arn`), or the console shows nothing |
 
 Dropped from the legacy design: SageMaker (Snowflake ML does the modelling), Glue (dynamic tables) and Iceberg (not needed). None of them is claimed.
 
-## AWS services
+## AWS services (option B only)
 
 | Service | Role |
 |---|---|
@@ -84,10 +112,32 @@ Dropped from the legacy design: SageMaker (Snowflake ML does the modelling), Glu
 
 ## Build (on demand)
 
-Prerequisites:
-- Python 3.11+, `snowflake-connector-python`, `boto3`, Node.js 22+, Docker and the `snow` CLI.
+Prerequisites for both options:
+- Python 3.11+, `snowflake-connector-python`, Node.js 22+, Docker and the `snow` CLI.
 - An X-Small warehouse with auto-suspend at or below 120 s.
-- AWS credentials for the target account, with QuickSight Enterprise for the dashboard.
+- App image: `snow spcs image-registry login`, then build and push `vn-maint-app:v3` to the database's `APP.IMAGES` repository (see the header of `snowflake/07_deploy_app.sql`).
+
+### A. Snowflake only
+
+```bash
+# 1. Core data and dynamic tables (guarded: new isolated database only)
+python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
+# 2. Native telemetry, ML, search, semantic view, agent, alert and task graph
+python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com
+# 3. App on SPCS with DEMO_PLATFORM=snowflake (push the image first)
+python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform snowflake --alert-email you@example.com --files 07_deploy_app.sql
+```
+
+During the demo:
+- Run `CALL APP.SIMULATE_TELEMETRY(20)` to add live readings. For a continuous feed, run `ALTER TASK APP.TASK_SIMULATE_TELEMETRY RESUME`, then `SUSPEND` it afterwards.
+- Run `EXECUTE ALERT APP.LIVE_ALARM_ALERT` to raise the alarm email.
+- Run `EXECUTE TASK APP.TASK_REFRESH_CURATED` to refresh the curated tables and rescore risk.
+
+Afterwards, drop the database, or suspend the service with `ALTER SERVICE APP.REPAIR_VN_MAINT_APP SUSPEND`.
+
+### B. AWS + Snowflake
+
+Also needs `boto3` and AWS credentials for the target account, with QuickSight Enterprise for the dashboard.
 
 ```bash
 # 1. Core data and dynamic tables (guarded: new isolated database only)
@@ -95,13 +145,11 @@ python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_X --warehouse
 # 2. AWS ingestion and Bedrock (dry run first, then --apply)
 python aws/setup_aws.py --database REPAIR_VIETNAM_MAINTENANCE_X --account <aws-account> --apply
 # 3. ML, search, semantic view, agent, alert and task graph
-python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --alert-email you@example.com
-# 4. App on SPCS: build and push the image, then run 07_deploy_app.sql (see the header of that file)
-python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --alert-email you@example.com --files 07_deploy_app.sql
+python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com
+# 4. App on SPCS with DEMO_PLATFORM=aws (push the image first)
+python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --platform aws --alert-email you@example.com --files 07_deploy_app.sql
 # 5. QuickSight (needs an existing Snowflake data source)
 python quicksight/build_dashboards.py --database REPAIR_VIETNAM_MAINTENANCE_X ... --apply --update --with-topic
-# Tests
-python -m pytest aws snowflake quicksight
 ```
 
 During the demo:
@@ -109,7 +157,13 @@ During the demo:
 - Run `EXECUTE ALERT APP.LIVE_ALARM_ALERT` to raise the alarm email.
 - Run `EXECUTE TASK APP.TASK_REFRESH_CURATED` to refresh the curated tables and rescore risk.
 
-Afterwards, `python aws/teardown_aws.py ... --apply` removes the AWS resources and the account-level integrations.
+Afterwards, `python aws/teardown_aws.py ... --apply` removes the AWS resources and the account-level Bedrock external-access and S3 storage integrations. It leaves the email integration `REPAIR_VN_MAINT_EMAIL_INT`, which option A also uses.
+
+### Tests
+
+```bash
+python -m pytest aws snowflake quicksight
+```
 
 For a local run, put `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_AUTHENTICATOR=PROGRAMMATIC_ACCESS_TOKEN` and `SNOWFLAKE_TOKEN` in the environment, then run `npm --prefix app run build && npm --prefix app start`.
 

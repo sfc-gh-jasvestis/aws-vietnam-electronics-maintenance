@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/snowflake';
+import { demoPlatform } from '@/lib/platform';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
 
   try {
     if (memo) {
+      const provider = demoPlatform() === 'aws' ? 'bedrock' : 'cortex';
       const [kpis, stops, causes, risk, bands] = await Promise.all([
         executeQuery(INTENTS.kpis.sql),
         executeQuery(INTENTS.stops.sql),
@@ -74,9 +76,9 @@ FROM ML.FAILURE_RISK_SCORES ORDER BY FAILURE_PROB_7D DESC LIMIT 5`),
       const answer = await summarise(
         'Draft a short action memo for the maintenance director with 3 prioritised actions, citing the figures.',
         [rows],
-        'bedrock',
+        provider,
       );
-      return NextResponse.json({ answer, sources: rows, provider: 'Amazon Bedrock (Claude Sonnet 4.5)', draft: true, synthetic: true });
+      return NextResponse.json({ answer, sources: rows, provider: provider === 'bedrock' ? 'Amazon Bedrock (Claude Sonnet 4.5)' : 'Snowflake Cortex AI_COMPLETE (claude-sonnet-4-5)', draft: true, synthetic: true });
     }
     const key = Object.keys(INTENTS).find((k) => INTENTS[k].match.test(question))!;
     const rows = await executeQuery(INTENTS[key].sql);
