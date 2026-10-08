@@ -112,5 +112,21 @@
     "notifications": "VALIDATED: APP.LIVE_ALARM_ALERT logs new ALARM readings to APP.ALERT_LOG and emails via SYSTEM$SEND_EMAIL; alert and tasks suspended between demos",
     "orchestration": "VALIDATED: task graph APP.TASK_REFRESH_CURATED -> APP.TASK_RESCORE_RISK run on demand (EXECUTE TASK)",
     "app_deployment": "VALIDATED: SPCS service APP.REPAIR_VN_MAINT_APP on SEA_DEMOS_VIETNAM_POOL; /api/data, /api/ask (Bedrock memo) and /api/agent return 200 through ingress"
+  },
+  "builds": {
+    "snowflake": {
+      "database": "REPAIR_VIETNAM_MAINTENANCE_20261008_SF",
+      "app_setting": "DEMO_PLATFORM=snowflake",
+      "live_telemetry": "VALIDATED 2026-10-08: APP.SIMULATE_TELEMETRY(40) inserted 40 rows (0 unknown machines); LOG_LIVE_ALARMS logged 3 ALARM readings",
+      "memo": "VALIDATED 2026-10-08: /api/ask memo 200, provider Snowflake Cortex AI_COMPLETE (claude-sonnet-4-5)",
+      "core_and_ml": "VALIDATED 2026-10-08: same KPIs as aws build (181 stops, 20 machines); top risk MAC-0013 0.9653",
+      "app": "VALIDATED 2026-10-08: /api/data (platform=snowflake), /api/ask, /api/agent 200 through ingress; image vn-maint-app:v3"
+    },
+    "aws": {
+      "database": "REPAIR_VIETNAM_MAINTENANCE_20261007_C",
+      "app_setting": "DEMO_PLATFORM=aws",
+      "regression": "VALIDATED 2026-10-08 on vn-maint-app:v3: /api/data (platform=aws, 60 msgs, median lag 19 s), /api/ask memo provider Amazon Bedrock, /api/agent 200",
+      "capabilities": "see required_capabilities"
+    }
   }
 }

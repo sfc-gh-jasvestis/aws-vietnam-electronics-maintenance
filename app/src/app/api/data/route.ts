@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { demoPlatform } from '@/lib/platform';
 import { executeQuery } from '@/lib/snowflake';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,7 @@ export async function GET() {
     const watermark = freshness[0]?.CURATED_WATERMARK ?? null;
     const ageDays = watermark ? (Date.now() - Date.parse(`${watermark}T00:00:00Z`)) / 86400000 : null;
     return NextResponse.json({
+      platform: demoPlatform(),
       kpiCards: kpis.map((row) => ({ title: row.TITLE, value: row.DISPLAY, status: row.STATUS })),
       timeseries: trend.map((row) => ({ period: row.PERIOD, value: numberOrNull(row.VALUE) })),
       categories: causes.map((row) => ({ category: row.CATEGORY, count: numberOrNull(row.COUNT) })),

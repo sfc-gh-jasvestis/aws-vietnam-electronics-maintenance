@@ -176,7 +176,7 @@ BEGIN
   IF (n > 0) THEN
     CALL SYSTEM$SEND_EMAIL('REPAIR_VN_MAINT_EMAIL_INT', '__ALERT_EMAIL__',
       '[Demo] Vietnam SMT live alarm',
-      'New IoT Core alarms logged in APP.ALERT_LOG: ' || :n || '. Data is synthetic.');
+      'New live-telemetry alarms logged in APP.ALERT_LOG: ' || :n || '. Data is synthetic.');
   END IF;
   RETURN n;
 END;
