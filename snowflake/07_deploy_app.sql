@@ -3,8 +3,9 @@
 -- Replace placeholders through snowflake/run_intelligence.py --files 07_deploy_app.sql
 -- (validated __DEMO_DB__ / __DEMO_WH__). Build and push the image first:
 --   snow spcs image-registry login -c <connection>
---   docker build --platform linux/amd64 -t <repository_url>/vn-maint-app:v1 app
---   docker push <repository_url>/vn-maint-app:v1
+--   docker build --platform linux/amd64 -t <repository_url>/vn-maint-app:v2 app
+--   docker push <repository_url>/vn-maint-app:v2
+-- Existing service: rerun the spec below as ALTER SERVICE APP.REPAIR_VN_MAINT_APP FROM SPECIFICATION $$...$$.
 -- Uses the existing compute pool SEA_DEMOS_VIETNAM_POOL (shared, already running).
 -- ============================================================================
 CREATE IMAGE REPOSITORY IF NOT EXISTS APP.IMAGES;
@@ -17,7 +18,7 @@ $$
 spec:
   containers:
     - name: app
-      image: /__DEMO_DB__/app/images/vn-maint-app:v1
+      image: /__DEMO_DB__/app/images/vn-maint-app:v2
       env:
         SNOWFLAKE_DATABASE: __DEMO_DB__
         SNOWFLAKE_SCHEMA: CURATED

@@ -164,6 +164,9 @@ export default function HomePage() {
   );
   const architecture = (
     <div className="space-y-4">
+      <h2 className="font-semibold">Architecture</h2>
+      <iframe src="/architecture.html" title="Architecture diagram" className="h-[620px] w-full rounded border border-slate-200" />
+      <p className="text-sm text-slate-600">Hover a component for details. <a className="underline" href="/architecture.html" target="_blank" rel="noreferrer">Open full screen</a></p>
       <h2 className="font-semibold">Implementation and validation status</h2>
       <p>Core source: synthetic machines, daily observations and spares. Curated dynamic tables compute numerator/denominator metrics and are suspended after on-demand initialization.</p>
       <p>Application: Next.js server queries the explicit curated contract. Request time and source observation watermark are separate.</p>

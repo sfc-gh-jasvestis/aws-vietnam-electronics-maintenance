@@ -3,6 +3,7 @@
 > Repair branch, validated end to end on 2026-10-08 in an isolated pilot database (`demo43`, AWS us-west-2).
 > All data is synthetic. Every capability below was run and checked. See `demo_contract.json` for evidence.
 > QuickSight Q answers were also checked in the Amazon Quick console and match Snowflake.
+> Interactive diagram: [docs/architecture.html](docs/architecture.html) (regenerate with `python3 docs/build_architecture.py`); the app shows it on the Architecture & Data tab.
 > QuickSight objects must be shared with the QuickSight user who signs in (`--principal-arn`); otherwise the console shows nothing.
 
 The demo covers 20 synthetic SMT machines in Vietnam (Ho Chi Minh City, Hanoi, Binh Duong, Dong Nai, Can Tho) over 90 days, plus live simulated telemetry.
