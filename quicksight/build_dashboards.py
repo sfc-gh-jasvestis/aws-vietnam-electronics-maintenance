@@ -49,8 +49,8 @@ def build_requests(account, region, principal, source_arn, database, prefix):
             'columns': [('METRIC_DATE', 'DATETIME'), ('AVG_EQUIPMENT_UPTIME', 'DECIMAL'), ('EVENT_COUNT', 'INTEGER')],
         },
         'equipment': {
-            'sql': f'SELECT ENTITY_ID, ENTITY_NAME, REGION, CATEGORY, AVG_EQUIPMENT_UPTIME, EVENT_COUNT FROM {database}.CURATED.PERFORMANCE_SUMMARY',
-            'columns': [('ENTITY_ID', 'STRING'), ('ENTITY_NAME', 'STRING'), ('REGION', 'STRING'), ('CATEGORY', 'STRING'), ('AVG_EQUIPMENT_UPTIME', 'DECIMAL'), ('EVENT_COUNT', 'INTEGER')],
+            'sql': f'SELECT ENTITY_ID, ENTITY_NAME, REGION, CATEGORY, AVG_EQUIPMENT_UPTIME, DOWNTIME_HOURS, ALERT_COUNT FROM {database}.CURATED.PERFORMANCE_SUMMARY',
+            'columns': [('ENTITY_ID', 'STRING'), ('ENTITY_NAME', 'STRING'), ('REGION', 'STRING'), ('CATEGORY', 'STRING'), ('AVG_EQUIPMENT_UPTIME', 'DECIMAL'), ('DOWNTIME_HOURS', 'DECIMAL'), ('ALERT_COUNT', 'INTEGER')],
         },
     }
     datasets = []
@@ -76,22 +76,23 @@ def build_requests(account, region, principal, source_arn, database, prefix):
             }}]}},
         }},
         {'LineChartVisual': {
-            'VisualId': 'daily-uptime', 'Title': title('Daily sampled uptime (%) - synthetic'),
+            'VisualId': 'daily-uptime', 'Title': title('Daily fleet uptime (%) - synthetic'),
             'ChartConfiguration': {'FieldWells': {'LineChartAggregatedFieldWells': {
                 'Category': [{'DateDimensionField': {
                     'FieldId': 'trend-date', 'Column': column('trend', 'METRIC_DATE'), 'DateGranularity': 'DAY',
                 }}],
                 'Values': [numerical('trend', 'AVG_EQUIPMENT_UPTIME')],
-            }}},
+            }}, 'PrimaryYAxisDisplayOptions': {'AxisOptions': {'AxisOffset': '0px', 'ScrollbarOptions': {'Visibility': 'HIDDEN'},
+                'DataOptions': {'NumericAxisOptions': {'Range': {'MinMax': {'Minimum': 90, 'Maximum': 100}}}}}}},
         }},
         {'BarChartVisual': {
-            'VisualId': 'equipment-uptime', 'Title': title('Sampled uptime by equipment (%) - synthetic'),
+            'VisualId': 'equipment-uptime', 'Title': title('Unplanned downtime hours by equipment (90 days) - synthetic'),
             'ChartConfiguration': {'Orientation': 'HORIZONTAL', 'FieldWells': {'BarChartAggregatedFieldWells': {
                 'Category': [{'CategoricalDimensionField': {
                     'FieldId': 'equipment-id', 'Column': column('equipment', 'ENTITY_ID'),
                 }}],
-                'Values': [numerical('equipment', 'AVG_EQUIPMENT_UPTIME')],
-            }}},
+                'Values': [numerical('equipment', 'DOWNTIME_HOURS', 'SUM')],
+            }}, 'SortConfiguration': {'CategorySort': [{'FieldSort': {'FieldId': 'equipment-downtime_hours', 'Direction': 'DESC'}}]}},
         }},
     ]
     dashboard = {

@@ -89,8 +89,20 @@ def run(connection, database, warehouse):
             raise RuntimeError('Unexpected synthetic source cardinalities')
         cursor.execute("SELECT TITLE, VALUE_NUM FROM CURATED.KPI_SUMMARY ORDER BY SORT_ORDER")
         metrics = dict(cursor.fetchall())
-        if metrics['Equipment Managed'] != 20 or metrics['Parts on Order'] != 5 or metrics['Spare Coverage'] != 87.5:
-            raise RuntimeError('Known synthetic KPI values failed reconciliation')
+        # Data is randomised, so reconcile KPIs against independent recomputation from RAW.
+        cursor.execute("""SELECT (SELECT COUNT(*) FROM RAW.MACHINES),
+            (SELECT SUM(ON_ORDER_QTY) FROM RAW.SPARE_PARTS),
+            (SELECT ROUND(100.0 * SUM(LEAST(ON_HAND_QTY, REQUIRED_QTY)) / SUM(REQUIRED_QTY), 6) FROM RAW.SPARE_PARTS),
+            (SELECT ROUND(100.0 * SUM(OPERATING_HOURS) / SUM(PLANNED_HOURS), 6) FROM RAW.SENSOR_READINGS),
+            (SELECT SUM(FAILURE_COUNT) FROM RAW.SENSOR_READINGS)""")
+        expected = dict(zip(['Equipment Managed', 'Parts on Order', 'Spare Coverage', 'Equipment Uptime', 'Unplanned Stops'],
+                            cursor.fetchone()))
+        for title, value in expected.items():
+            if abs(float(metrics[title]) - float(value)) > 1e-4:
+                raise RuntimeError(f'KPI {title} failed reconciliation')
+        cursor.execute("SELECT MAX(AVG_EQUIPMENT_UPTIME) - MIN(AVG_EQUIPMENT_UPTIME) FROM CURATED.PERFORMANCE_SUMMARY")
+        if float(cursor.fetchone()[0]) < 2.0:
+            raise RuntimeError('Synthetic data lacks variation between machines')
         if not 0 <= metrics['Equipment Uptime'] <= 100:
             raise RuntimeError('Uptime outside valid range')
         return {'database': database, 'warehouse': warehouse, 'queries': evidence,
