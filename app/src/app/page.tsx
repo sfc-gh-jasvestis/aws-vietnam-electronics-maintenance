@@ -19,7 +19,12 @@ interface MaintenanceData {
   requestedAt: string;
   stale: boolean;
   pipelineBehind: boolean;
+  risk: Record<string, string | number | null>[];
+  holdout: { n: number | null; baseRate: number | null; precision: number | null; recall: number | null } | null;
+  forecast: { period: string; value: number | null; lower: number | null; upper: number | null }[];
 }
+
+const pct = (value: number | null) => (value === null ? 'n/a' : `${(value * 100).toFixed(0)}%`);
 
 export default function HomePage() {
   const [data, setData] = useState<MaintenanceData | null>(null);
@@ -70,9 +75,26 @@ export default function HomePage() {
   );
   const predictive = (
     <div className="space-y-4">
-      <h2 className="font-semibold">Remaining useful life and failure prediction</h2>
-      <p role="status">Model validation is incomplete. Predictions are unavailable; seeded values are not model outputs.</p>
-      <p className="text-sm text-slate-600">Required repair: train and evaluate a remaining-useful-life model, persist predictions with model version and scoring time, then reconcile the seven-day failure count. This capability is not accepted as complete.</p>
+      <h2 className="font-semibold">7-day failure risk and downtime forecast</h2>
+      <p className="text-sm text-slate-600">
+        Synthetic data has no run-to-failure history, so this predicts the probability of an unplanned stop in the next
+        7 days (Snowflake ML classification) rather than remaining useful life.
+      </p>
+      {data?.holdout ? (
+        <p role="status" className="text-sm text-slate-700">
+          Out-of-time holdout ({data.holdout.n} machine-days): precision {pct(data.holdout.precision)} and recall{' '}
+          {pct(data.holdout.recall)} at a 0.5 threshold, versus a {pct(data.holdout.baseRate)} base failure rate.
+        </p>
+      ) : (
+        <p role="status">Model outputs are not deployed. Run snowflake/05_ml.sql.</p>
+      )}
+      <DataTable columns={[
+        { key: 'id', header: 'Machine' }, { key: 'band', header: 'Risk band' },
+        { key: 'probability', header: 'P(stop in 7 days)' }, { key: 'scoredAsOf', header: 'Scored as of' },
+      ]} data={data?.risk ?? []} title="Failure risk by machine" />
+      <Chart data={data?.forecast ?? []} type="line" xKey="period"
+        yKeys={[{ key: 'value', name: 'Forecast' }, { key: 'lower', name: 'Lower' }, { key: 'upper', name: 'Upper' }]}
+        title="Fleet downtime forecast, next 14 days (hours)" />
     </div>
   );
   const planning = (

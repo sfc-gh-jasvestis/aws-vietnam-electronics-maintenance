@@ -7,37 +7,86 @@
   "data_classification": "synthetic demonstration only",
   "currency": "VND",
   "grains": {
-    "RAW.MACHINES": "one physical machine per ID; 20 synthetic machines",
+    "RAW.MACHINES": "one physical machine per ID; 20 synthetic machines with HASH-seeded age, category, reliability, shift and PM profile",
     "RAW.SENSOR_READINGS": "one machine-day per ENTITY_ID and EVENT_DATE; daily aggregates, not individual sensor packets",
     "RAW.SPARE_PARTS": "one required spare-part type per machine at snapshot date",
     "CURATED.PERFORMANCE_SUMMARY": "one machine over the entire 90-day observation window",
-    "CURATED.TREND_ANALYSIS": "one day over the equipment fleet"
+    "CURATED.TREND_ANALYSIS": "one day over the equipment fleet",
+    "ML.FAILURE_RISK_SCORES": "one machine scored on its latest observation day"
   },
   "metrics": {
-    "uptime_pct": {"formula": "100 * SUM(OPERATING_HOURS) / NULLIF(SUM(PLANNED_HOURS), 0)", "unit": "%"},
-    "unplanned_stops": {"formula": "SUM(FAILURE_COUNT)", "unit": "events"},
-    "mtbf_hours": {"formula": "SUM(OPERATING_HOURS) / NULLIF(SUM(FAILURE_COUNT), 0)", "unit": "hours", "zero_failures": "null; not an infinite or zero MTBF estimate"},
-    "equipment_managed": {"formula": "COUNT of RAW.MACHINES", "unit": "machines"},
-    "parts_on_order": {"formula": "SUM(ON_ORDER_QTY) at snapshot date", "unit": "parts"},
-    "spare_coverage_pct": {"formula": "100 * SUM(LEAST(ON_HAND_QTY, REQUIRED_QTY)) / NULLIF(SUM(REQUIRED_QTY), 0)", "unit": "%"},
-    "pm_compliance_pct": {"formula": "100 * SUM(PM_COMPLETED) / NULLIF(SUM(PM_DUE), 0)", "unit": "%"},
-    "yield_pct": {"formula": "100 * SUM(GOOD_UNITS) / NULLIF(SUM(TOTAL_UNITS), 0)", "unit": "%"}
+    "uptime_pct": {
+      "formula": "100 * SUM(OPERATING_HOURS) / NULLIF(SUM(PLANNED_HOURS), 0)",
+      "unit": "%"
+    },
+    "unplanned_stops": {
+      "formula": "SUM(FAILURE_COUNT)",
+      "unit": "events"
+    },
+    "mtbf_hours": {
+      "formula": "SUM(OPERATING_HOURS) / NULLIF(SUM(FAILURE_COUNT), 0)",
+      "unit": "hours",
+      "zero_failures": "null; not an infinite or zero MTBF estimate"
+    },
+    "equipment_managed": {
+      "formula": "COUNT of RAW.MACHINES",
+      "unit": "machines"
+    },
+    "parts_on_order": {
+      "formula": "SUM(ON_ORDER_QTY) at snapshot date",
+      "unit": "parts"
+    },
+    "spare_coverage_pct": {
+      "formula": "100 * SUM(LEAST(ON_HAND_QTY, REQUIRED_QTY)) / NULLIF(SUM(REQUIRED_QTY), 0)",
+      "unit": "%"
+    },
+    "pm_compliance_pct": {
+      "formula": "100 * SUM(PM_COMPLETED) / NULLIF(SUM(PM_DUE), 0)",
+      "unit": "%"
+    },
+    "yield_pct": {
+      "formula": "100 * SUM(GOOD_UNITS) / NULLIF(SUM(TOTAL_UNITS), 0)",
+      "unit": "%"
+    }
   },
   "chart_bindings": {
-    "uptime_trend": ["METRIC_DATE", "AVG_EQUIPMENT_UPTIME"],
-    "downtime_root_cause": ["ROOT_CAUSE", "DOWNTIME_HOURS"],
-    "pm_vs_yield": ["PM_COMPLIANCE_PCT", "YIELD_PCT"],
-    "rul": ["ENTITY_ID", "PREDICTED_RUL_DAYS"]
+    "uptime_trend": [
+      "METRIC_DATE",
+      "AVG_EQUIPMENT_UPTIME"
+    ],
+    "downtime_root_cause": [
+      "ROOT_CAUSE",
+      "DOWNTIME_HOURS"
+    ],
+    "pm_vs_yield": [
+      "PM_COMPLIANCE_PCT",
+      "YIELD_PCT"
+    ],
+    "failure_risk": [
+      "ENTITY_ID",
+      "FAILURE_PROB_7D",
+      "RISK_BAND"
+    ],
+    "downtime_forecast": [
+      "FORECAST_DATE",
+      "DOWNTIME_HOURS",
+      "LOWER_BOUND",
+      "UPPER_BOUND"
+    ],
+    "quicksight_downtime_by_machine": [
+      "ENTITY_ID",
+      "SUM(DOWNTIME_HOURS)"
+    ]
   },
   "freshness": "MAX(EVENT_DATE) is an observation watermark; requestedAt is not freshness",
   "required_capabilities": {
-    "core_pipeline": "SOURCE_IMPLEMENTATION_IN_PROGRESS",
-    "remaining_useful_life_model": "NOT_IMPLEMENTED; must use evaluated model output, never a seeded KPI",
-    "forecast_and_anomaly": "NOT_VALIDATED",
+    "core_pipeline": "VALIDATED 2026-10-08 on isolated demo43 snapshot; KPIs reconciled to RAW recomputation",
+    "remaining_useful_life_model": "REPLACED by 7-day failure-risk classifier (no run-to-failure history); out-of-time holdout precision 0.60 / recall 0.53 vs 0.38 base rate",
+    "forecast_and_anomaly": "Forecast VALIDATED (14-day fleet downtime, Snowflake ML FORECAST); anomaly detection not implemented",
     "search": "NOT_VALIDATED",
     "semantic_analytics": "NOT_VALIDATED",
-    "grounded_ai": "NOT_IMPLEMENTED",
-    "quicksight": "OFFLINE_DEFINITION_TESTED; cloud/render/Q tests pending",
+    "grounded_ai": "VALIDATED: AI_COMPLETE over allow-listed read-only queries; SQL and source rows returned",
+    "quicksight": "Cloud applied and rendered (v3); Q answers not yet tested",
     "aws_ingestion": "NOT_VALIDATED",
     "notifications": "NOT_VALIDATED; no automatic send"
   }

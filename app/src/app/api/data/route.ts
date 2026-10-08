@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    const [kpis, trend, causes, machines, freshness] = await Promise.all([
+    const [kpis, trend, causes, machines, freshness, risk, holdout, forecast] = await Promise.all([
       executeQuery<{ TITLE: string; DISPLAY: string; STATUS: string }>(
         'SELECT TITLE, DISPLAY, STATUS FROM CURATED.KPI_SUMMARY ORDER BY SORT_ORDER'),
       executeQuery<{ PERIOD: string; VALUE: number | null }>(`
@@ -23,6 +23,14 @@ export async function GET() {
       executeQuery<{ RAW_WATERMARK: string | null; CURATED_WATERMARK: string | null }>(`
         SELECT (SELECT TO_CHAR(MAX(EVENT_DATE), 'YYYY-MM-DD') FROM RAW.SENSOR_READINGS) AS RAW_WATERMARK,
                (SELECT TO_CHAR(MAX(METRIC_DATE), 'YYYY-MM-DD') FROM CURATED.TREND_ANALYSIS) AS CURATED_WATERMARK`),
+      executeQuery<Record<string, string | number | null>>(`
+        SELECT ENTITY_ID, TO_CHAR(SCORED_AS_OF, 'YYYY-MM-DD') AS SCORED_AS_OF, FAILURE_PROB_7D, RISK_BAND
+        FROM ML.FAILURE_RISK_SCORES ORDER BY FAILURE_PROB_7D DESC`),
+      executeQuery<Record<string, string | number | null>>(
+        'SELECT N, BASE_RATE, PRECISION_AT_50, RECALL_AT_50 FROM ML.FAILURE_RISK_HOLDOUT_METRICS'),
+      executeQuery<Record<string, string | number | null>>(`
+        SELECT TO_CHAR(FORECAST_DATE, 'YYYY-MM-DD') AS PERIOD, DOWNTIME_HOURS, LOWER_BOUND, UPPER_BOUND
+        FROM ML.DOWNTIME_FORECAST ORDER BY FORECAST_DATE`),
     ]);
     const numberOrNull = (value: unknown): number | null => {
       if (value === null || value === undefined) return null;
@@ -51,7 +59,19 @@ export async function GET() {
       pipelineBehind: freshness[0]?.RAW_WATERMARK !== watermark,
       requestedAt: new Date().toISOString(),
       synthetic: true,
-      modelStatus: 'not_validated',
+      risk: risk.map((row) => ({
+        id: row.ENTITY_ID, scoredAsOf: row.SCORED_AS_OF,
+        probability: numberOrNull(row.FAILURE_PROB_7D), band: row.RISK_BAND,
+      })),
+      holdout: holdout[0] ? {
+        n: numberOrNull(holdout[0].N), baseRate: numberOrNull(holdout[0].BASE_RATE),
+        precision: numberOrNull(holdout[0].PRECISION_AT_50), recall: numberOrNull(holdout[0].RECALL_AT_50),
+      } : null,
+      forecast: forecast.map((row) => ({
+        period: row.PERIOD, value: numberOrNull(row.DOWNTIME_HOURS),
+        lower: numberOrNull(row.LOWER_BOUND), upper: numberOrNull(row.UPPER_BOUND),
+      })),
+      modelStatus: holdout[0] ? 'holdout_evaluated' : 'missing',
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return NextResponse.json({ error: 'Maintenance data is unavailable. Verify the core deployment and application role.' },

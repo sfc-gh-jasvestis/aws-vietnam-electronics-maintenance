@@ -1,8 +1,9 @@
 # Predictive Maintenance
 
-> Repair branch: core pipeline validation only, not an end-to-end demo certification.
-> The sections below describe the legacy target capabilities and are under review.
-> Do not run scripts 05 onward or present their metrics/claims as validated.
+> Repair branch: pilot validation in progress, not an end-to-end demo certification.
+> Validated so far: core pipeline, 7-day failure-risk model and downtime forecast (`05_ml.sql`),
+> grounded AI answers, and the QuickSight dashboard. See `demo_contract.json` for status.
+> The legacy sections below are under review; do not present their metrics or claims as validated.
 
 ## Validated repair workflow
 
@@ -16,6 +17,8 @@ databases and never replaces the running demo. Inspect the dry run first:
 python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_TEST --warehouse HOL_GEN2_WH
 python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_TEST --warehouse HOL_GEN2_WH --apply
 python snowflake/test_run_core.py
+# then, with SET DEMO_DB / DEMO_WH for the same database:
+# snowflake/05_ml.sql  (failure-risk classifier, holdout metrics, 14-day forecast)
 python quicksight/test_build_dashboards.py
 npm --prefix app ci
 npm --prefix app run build
@@ -24,7 +27,8 @@ npm --prefix app run build
 The runner executes only 00/02/03/04 and renders the validated warehouse
 identifier in the DT DDL. Do not execute these files individually without the
 session variables and rendering step. It creates 20 synthetic machines, 1,800
-machine-day observations and 20 spare-part records; reconciles core measures;
+machine-day observations and 20 spare-part records, using HASH-seeded randomness so
+machines differ in reliability, shifts, PM discipline, repair time and root causes; reconciles core measures;
 and suspends the four initialized dynamic tables. Retain the isolated namespace
 for inspection. A failed run leaves its isolated evidence intact; use a new name
 for a clean retry, not a destructive reset.
