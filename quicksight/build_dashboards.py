@@ -52,6 +52,15 @@ def build_requests(account, region, principal, source_arn, database, prefix):
             'sql': f'SELECT ENTITY_ID, ENTITY_NAME, REGION, CATEGORY, AVG_EQUIPMENT_UPTIME, DOWNTIME_HOURS, ALERT_COUNT FROM {database}.CURATED.PERFORMANCE_SUMMARY',
             'columns': [('ENTITY_ID', 'STRING'), ('ENTITY_NAME', 'STRING'), ('REGION', 'STRING'), ('CATEGORY', 'STRING'), ('AVG_EQUIPMENT_UPTIME', 'DECIMAL'), ('DOWNTIME_HOURS', 'DECIMAL'), ('ALERT_COUNT', 'INTEGER')],
         },
+        'risk': {
+            'sql': (f'SELECT r.ENTITY_ID, p.CATEGORY, p.REGION, r.FAILURE_PROB_7D, r.RISK_BAND, r.SCORED_AS_OF '
+                    f'FROM {database}.ML.FAILURE_RISK_SCORES r JOIN {database}.CURATED.PERFORMANCE_SUMMARY p ON p.ENTITY_ID = r.ENTITY_ID'),
+            'columns': [('ENTITY_ID', 'STRING'), ('CATEGORY', 'STRING'), ('REGION', 'STRING'), ('FAILURE_PROB_7D', 'DECIMAL'), ('RISK_BAND', 'STRING'), ('SCORED_AS_OF', 'DATETIME')],
+        },
+        'telemetry': {
+            'sql': f'SELECT MACHINE_ID, EVENT_TS, VIBRATION_MM_S, TEMPERATURE_C, STATUS FROM {database}.RAW.LIVE_TELEMETRY',
+            'columns': [('MACHINE_ID', 'STRING'), ('EVENT_TS', 'DATETIME'), ('VIBRATION_MM_S', 'DECIMAL'), ('TEMPERATURE_C', 'DECIMAL'), ('STATUS', 'STRING')],
+        },
     }
     datasets = []
     for name, spec in specs.items():
@@ -94,6 +103,21 @@ def build_requests(account, region, principal, source_arn, database, prefix):
                 'Values': [numerical('equipment', 'DOWNTIME_HOURS', 'SUM')],
             }}, 'SortConfiguration': {'CategorySort': [{'FieldSort': {'FieldId': 'equipment-downtime_hours', 'Direction': 'DESC'}}]}},
         }},
+        {'KPIVisual': {
+            'VisualId': 'iot-messages', 'Title': title('IoT Core messages loaded by Snowpipe'),
+            'ChartConfiguration': {'FieldWells': {'Values': [{'CategoricalMeasureField': {
+                'FieldId': 'iot-count', 'Column': column('telemetry', 'MACHINE_ID'), 'AggregationFunction': 'COUNT',
+            }}]}},
+        }},
+        {'BarChartVisual': {
+            'VisualId': 'failure-risk', 'Title': title('Next-7-day failure probability by machine (Snowflake ML) - synthetic'),
+            'ChartConfiguration': {'Orientation': 'HORIZONTAL', 'FieldWells': {'BarChartAggregatedFieldWells': {
+                'Category': [{'CategoricalDimensionField': {
+                    'FieldId': 'risk-id', 'Column': column('risk', 'ENTITY_ID'),
+                }}],
+                'Values': [numerical('risk', 'FAILURE_PROB_7D', 'MAX')],
+            }}, 'SortConfiguration': {'CategorySort': [{'FieldSort': {'FieldId': 'risk-failure_prob_7d', 'Direction': 'DESC'}}]}},
+        }},
     ]
     dashboard = {
         'AwsAccountId': account, 'DashboardId': f'{prefix}-dashboard',
@@ -106,8 +130,10 @@ def build_requests(account, region, principal, source_arn, database, prefix):
                 'SheetId': 'overview', 'Name': 'Maintenance overview', 'Visuals': visuals,
                 'Layouts': [{'Configuration': {'GridLayout': {'Elements': [
                     {'ElementId': 'equipment-count', 'ElementType': 'VISUAL', 'ColumnIndex': 0, 'RowIndex': 0, 'ColumnSpan': 12, 'RowSpan': 3},
+                    {'ElementId': 'iot-messages', 'ElementType': 'VISUAL', 'ColumnIndex': 12, 'RowIndex': 0, 'ColumnSpan': 12, 'RowSpan': 3},
                     {'ElementId': 'daily-uptime', 'ElementType': 'VISUAL', 'ColumnIndex': 0, 'RowIndex': 3, 'ColumnSpan': 36, 'RowSpan': 8},
-                    {'ElementId': 'equipment-uptime', 'ElementType': 'VISUAL', 'ColumnIndex': 0, 'RowIndex': 11, 'ColumnSpan': 36, 'RowSpan': 12},
+                    {'ElementId': 'equipment-uptime', 'ElementType': 'VISUAL', 'ColumnIndex': 0, 'RowIndex': 11, 'ColumnSpan': 18, 'RowSpan': 12},
+                    {'ElementId': 'failure-risk', 'ElementType': 'VISUAL', 'ColumnIndex': 18, 'RowIndex': 11, 'ColumnSpan': 18, 'RowSpan': 12},
                 ]}}}],
             }],
         },
@@ -119,7 +145,7 @@ def build_requests(account, region, principal, source_arn, database, prefix):
         'AwsAccountId': account, 'TopicId': f'{prefix}-topic',
         'Topic': {
             'Name': 'Vietnam maintenance synthetic observations',
-            'Description': 'On-demand synthetic snapshots. Uptime is a sampled percentage, not a failure prediction. No causal or customer-outcome claims.',
+            'Description': 'On-demand synthetic snapshots of 20 SMT machines. Includes Snowflake ML next-7-day failure risk. No causal or customer-outcome claims.',
             'DataSets': [{
                 'DatasetArn': f'{arn_base}:dataset/{prefix}-equipment',
                 'DatasetName': 'Equipment observations',
@@ -128,6 +154,16 @@ def build_requests(account, region, principal, source_arn, database, prefix):
                      'ColumnDataRole': 'MEASURE' if kind in ('INTEGER', 'DECIMAL') else 'DIMENSION',
                      **({'Aggregation': 'AVERAGE', 'NonAdditive': True} if key == 'AVG_EQUIPMENT_UPTIME' else {})}
                     for key, kind in specs['equipment']['columns']
+                ],
+            }, {
+                'DatasetArn': f'{arn_base}:dataset/{prefix}-risk',
+                'DatasetName': 'Failure risk scores',
+                'DatasetDescription': 'Snowflake ML classification: probability of an unplanned stop in the next 7 days, per machine.',
+                'Columns': [
+                    {'ColumnName': key, 'ColumnFriendlyName': key.replace('_', ' ').title(),
+                     'ColumnDataRole': 'MEASURE' if kind in ('INTEGER', 'DECIMAL') else 'DIMENSION',
+                     **({'Aggregation': 'MAX', 'NonAdditive': True} if key == 'FAILURE_PROB_7D' else {})}
+                    for key, kind in specs['risk']['columns']
                 ],
             }],
         },

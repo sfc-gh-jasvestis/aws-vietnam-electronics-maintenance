@@ -19,8 +19,13 @@ class DashboardTests(unittest.TestCase):
     def test_explicit_visuals_and_dataset_bindings(self):
         requests = self.requests()
         sheet = requests['dashboard']['Definition']['Sheets'][0]
-        self.assertEqual(len(sheet['Visuals']), 3)
-        self.assertEqual(len(requests['datasets']), 2)
+        self.assertEqual(len(sheet['Visuals']), 5)
+        self.assertEqual(len(requests['datasets']), 4)
+        self.assertIn('ML.FAILURE_RISK_SCORES', str(requests['datasets']))
+        self.assertIn('RAW.LIVE_TELEMETRY', str(requests['datasets']))
+        layout_ids = {e['ElementId'] for e in sheet['Layouts'][0]['Configuration']['GridLayout']['Elements']}
+        visual_ids = {next(iter(v.values()))['VisualId'] for v in sheet['Visuals']}
+        self.assertEqual(layout_ids, visual_ids)
         self.assertIn('EVENT_COUNT', str(requests['datasets']))
         self.assertNotIn('SELECT *', str(requests))
         self.assertNotIn('{{', str(requests))

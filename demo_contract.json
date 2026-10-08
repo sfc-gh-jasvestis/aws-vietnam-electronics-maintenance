@@ -12,7 +12,9 @@
     "RAW.SPARE_PARTS": "one required spare-part type per machine at snapshot date",
     "CURATED.PERFORMANCE_SUMMARY": "one machine over the entire 90-day observation window",
     "CURATED.TREND_ANALYSIS": "one day over the equipment fleet",
-    "ML.FAILURE_RISK_SCORES": "one machine scored on its latest observation day"
+    "ML.FAILURE_RISK_SCORES": "one machine scored on its latest observation day",
+    "RAW.LIVE_TELEMETRY": "one IoT Core message (simulated sensor reading) loaded by Snowpipe",
+    "ML.VIBRATION_ANOMALIES": "one machine-day in the last 15 days, scored against the prior 75-day baseline"
   },
   "metrics": {
     "uptime_pct": {
@@ -76,18 +78,39 @@
     "quicksight_downtime_by_machine": [
       "ENTITY_ID",
       "SUM(DOWNTIME_HOURS)"
+    ],
+    "live_telemetry": [
+      "MACHINE_ID",
+      "EVENT_TS",
+      "VIBRATION_MM_S",
+      "TEMPERATURE_C",
+      "STATUS"
+    ],
+    "vibration_anomalies": [
+      "ENTITY_ID",
+      "EVENT_DATE",
+      "VIBRATION",
+      "EXPECTED",
+      "UPPER_BOUND"
+    ],
+    "quicksight_failure_risk": [
+      "ENTITY_ID",
+      "MAX(FAILURE_PROB_7D)"
     ]
   },
   "freshness": "MAX(EVENT_DATE) is an observation watermark; requestedAt is not freshness",
   "required_capabilities": {
     "core_pipeline": "VALIDATED 2026-10-08 on isolated demo43 snapshot; KPIs reconciled to RAW recomputation",
     "remaining_useful_life_model": "REPLACED by 7-day failure-risk classifier (no run-to-failure history); out-of-time holdout precision 0.60 / recall 0.53 vs 0.38 base rate",
-    "forecast_and_anomaly": "Forecast VALIDATED (14-day fleet downtime, Snowflake ML FORECAST); anomaly detection not implemented",
-    "search": "NOT_VALIDATED",
-    "semantic_analytics": "NOT_VALIDATED",
-    "grounded_ai": "VALIDATED: AI_COMPLETE over allow-listed read-only queries; SQL and source rows returned",
-    "quicksight": "Cloud applied and rendered (v3); Q answers not yet tested",
-    "aws_ingestion": "NOT_VALIDATED",
-    "notifications": "NOT_VALIDATED; no automatic send"
+    "forecast_and_anomaly": "VALIDATED: 14-day fleet downtime FORECAST; vibration ANOMALY_DETECTION (train 75 days, detect last 15; 25 of 320 machine-days flagged)",
+    "search": "VALIDATED: Cortex Search SEARCH.MAINTENANCE_SOP_SEARCH over 14 synthetic SOPs (one per equipment class and failure mode)",
+    "semantic_analytics": "VALIDATED: semantic view APP.MAINTENANCE_ANALYTICS (stops by type sum to 181, matching KPI) and Cortex Agent APP.MAINTENANCE_AGENT using analyst + search tools",
+    "grounded_ai": "VALIDATED: agent answers return generated SQL and SOP citations; action memo by Amazon Bedrock Claude via external-access UDF APP.BEDROCK_GENERATE",
+    "quicksight": "VALIDATED: v5 rendered in cloud (KPIs, daily uptime, downtime by machine, failure risk, IoT message count) via PAT-only service user",
+    "quicksight_q": "NOT_VALIDATED: topic with equipment and risk datasets created and refreshed; Q answers need a manual check in the QuickSight console",
+    "aws_ingestion": "VALIDATED: IoT Core rule -> S3 -> Snowpipe AUTO_INGEST into RAW.LIVE_TELEMETRY (60 of 60 messages loaded, median 21 s lag)",
+    "notifications": "VALIDATED: APP.LIVE_ALARM_ALERT logs new ALARM readings to APP.ALERT_LOG and emails via SYSTEM$SEND_EMAIL; alert and tasks suspended between demos",
+    "orchestration": "VALIDATED: task graph APP.TASK_REFRESH_CURATED -> APP.TASK_RESCORE_RISK run on demand (EXECUTE TASK)",
+    "app_deployment": "VALIDATED: SPCS service APP.REPAIR_VN_MAINT_APP on SEA_DEMOS_VIETNAM_POOL; /api/data, /api/ask (Bedrock memo) and /api/agent return 200 through ingress"
   }
 }

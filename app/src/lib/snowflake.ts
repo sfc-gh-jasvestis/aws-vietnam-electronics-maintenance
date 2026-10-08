@@ -51,6 +51,23 @@ function getOAuthToken(): string {
   }
 }
 
+/** Base URL and auth headers for Snowflake REST APIs (Cortex Agents). */
+export function restAuth(): { baseUrl: string; headers: Record<string, string> } {
+  const host = env('SNOWFLAKE_HOST') || `${env('SNOWFLAKE_ACCOUNT')}.snowflakecomputing.com`;
+  const pat = env('SNOWFLAKE_AUTHENTICATOR') === 'PROGRAMMATIC_ACCESS_TOKEN';
+  return {
+    baseUrl: `https://${host}`,
+    headers: {
+      Authorization: `Bearer ${getOAuthToken()}`,
+      'X-Snowflake-Authorization-Token-Type': pat ? 'PROGRAMMATIC_ACCESS_TOKEN' : 'OAUTH',
+    },
+  };
+}
+
+export function databaseName(): string {
+  return env('SNOWFLAKE_DATABASE') || env('DATABASE');
+}
+
 export async function getConnection() {
   if (connection) return connection;
   // Await an in-flight connect rather than starting a second one.
@@ -62,7 +79,9 @@ export async function getConnection() {
     host: env('SNOWFLAKE_HOST'),
     database: env('SNOWFLAKE_DATABASE') || env('DATABASE'),
     schema: env('SNOWFLAKE_SCHEMA') || env('SCHEMA') || 'CURATED',
-    authenticator: 'OAUTH',
+    // SPCS: OAUTH with the container token. Local runs may set
+    // SNOWFLAKE_AUTHENTICATOR=PROGRAMMATIC_ACCESS_TOKEN and SNOWFLAKE_TOKEN.
+    authenticator: env('SNOWFLAKE_AUTHENTICATOR') || 'OAUTH',
     token: getOAuthToken(),
     clientSessionKeepAlive: true,
   };
@@ -70,6 +89,9 @@ export async function getConnection() {
   // Not injected by SPCS. Omit entirely so the service QUERY_WAREHOUSE applies.
   const warehouse = env('SNOWFLAKE_WAREHOUSE') || env('WAREHOUSE');
   if (warehouse) options.warehouse = warehouse;
+  // Only needed for local PAT runs; SPCS derives both from the service token.
+  if (env('SNOWFLAKE_USER')) options.username = env('SNOWFLAKE_USER');
+  if (env('SNOWFLAKE_ROLE')) options.role = env('SNOWFLAKE_ROLE');
 
   const handle = snowflake.createConnection(options as any);
 

@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    const [kpis, trend, causes, machines, freshness, risk, holdout, forecast] = await Promise.all([
+    const [kpis, trend, causes, machines, freshness, risk, holdout, forecast, live, liveSummary, anomalies, alerts] = await Promise.all([
       executeQuery<{ TITLE: string; DISPLAY: string; STATUS: string }>(
         'SELECT TITLE, DISPLAY, STATUS FROM CURATED.KPI_SUMMARY ORDER BY SORT_ORDER'),
       executeQuery<{ PERIOD: string; VALUE: number | null }>(`
@@ -31,6 +31,22 @@ export async function GET() {
       executeQuery<Record<string, string | number | null>>(`
         SELECT TO_CHAR(FORECAST_DATE, 'YYYY-MM-DD') AS PERIOD, DOWNTIME_HOURS, LOWER_BOUND, UPPER_BOUND
         FROM ML.DOWNTIME_FORECAST ORDER BY FORECAST_DATE`),
+      executeQuery<Record<string, string | number | null>>(`
+        SELECT MACHINE_ID, TO_CHAR(EVENT_TS, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TS, VIBRATION_MM_S, TEMPERATURE_C, STATUS,
+               TO_CHAR(LOADED_AT, 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS LOADED_AT
+        FROM RAW.LIVE_TELEMETRY ORDER BY EVENT_TS DESC LIMIT 25`),
+      executeQuery<Record<string, string | number | null>>(`
+        SELECT COUNT(*) AS N, COUNT_IF(STATUS = 'ALARM') AS ALARMS,
+               TO_CHAR(MAX(LOADED_AT), 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS LAST_LOADED,
+               ROUND(MEDIAN(DATEDIFF('second', IOT_RECEIVED_TS, CONVERT_TIMEZONE('UTC', LOADED_AT)::TIMESTAMP_NTZ)), 0) AS MEDIAN_LAG_S
+        FROM RAW.LIVE_TELEMETRY`),
+      executeQuery<Record<string, string | number | null>>(`
+        SELECT ENTITY_ID, TO_CHAR(EVENT_DATE, 'YYYY-MM-DD') AS EVENT_DATE, ROUND(VIBRATION, 2) AS VIBRATION,
+               ROUND(EXPECTED, 2) AS EXPECTED, ROUND(UPPER_BOUND, 2) AS UPPER_BOUND
+        FROM ML.VIBRATION_ANOMALIES WHERE IS_ANOMALY ORDER BY EVENT_DATE DESC, ENTITY_ID LIMIT 50`),
+      executeQuery<Record<string, string | number | null>>(`
+        SELECT MACHINE_ID, TO_CHAR(EVENT_TS, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TS, VIBRATION_MM_S, TEMPERATURE_C, SOP_HINT
+        FROM APP.ALERT_LOG ORDER BY ALERTED_AT DESC, EVENT_TS DESC LIMIT 25`),
     ]);
     const numberOrNull = (value: unknown): number | null => {
       if (value === null || value === undefined) return null;
@@ -72,6 +88,22 @@ export async function GET() {
         lower: numberOrNull(row.LOWER_BOUND), upper: numberOrNull(row.UPPER_BOUND),
       })),
       modelStatus: holdout[0] ? 'holdout_evaluated' : 'missing',
+      live: live.map((row) => ({
+        id: row.MACHINE_ID, eventTs: row.EVENT_TS, vibration: numberOrNull(row.VIBRATION_MM_S),
+        temperature: numberOrNull(row.TEMPERATURE_C), status: row.STATUS, loadedAt: row.LOADED_AT,
+      })),
+      liveSummary: {
+        n: numberOrNull(liveSummary[0]?.N), alarms: numberOrNull(liveSummary[0]?.ALARMS),
+        lastLoaded: liveSummary[0]?.LAST_LOADED ?? null, medianLagSeconds: numberOrNull(liveSummary[0]?.MEDIAN_LAG_S),
+      },
+      anomalies: anomalies.map((row) => ({
+        id: row.ENTITY_ID, date: row.EVENT_DATE, vibration: numberOrNull(row.VIBRATION),
+        expected: numberOrNull(row.EXPECTED), upper: numberOrNull(row.UPPER_BOUND),
+      })),
+      alerts: alerts.map((row) => ({
+        id: row.MACHINE_ID, eventTs: row.EVENT_TS, vibration: numberOrNull(row.VIBRATION_MM_S),
+        temperature: numberOrNull(row.TEMPERATURE_C), hint: row.SOP_HINT,
+      })),
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return NextResponse.json({ error: 'Maintenance data is unavailable. Verify the core deployment and application role.' },

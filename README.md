@@ -1,105 +1,115 @@
-# Predictive Maintenance
+# Predictive Maintenance - Vietnam Electronics (AWS + Snowflake)
 
-> Repair branch: pilot validation in progress, not an end-to-end demo certification.
-> Validated so far: core pipeline, 7-day failure-risk model and downtime forecast (`05_ml.sql`),
-> grounded AI answers, and the QuickSight dashboard. See `demo_contract.json` for status.
-> The legacy sections below are under review; do not present their metrics or claims as validated.
+> Repair branch, validated end to end on 2026-10-08 in an isolated pilot database (`demo43`, AWS us-west-2).
+> All data is synthetic. Every capability below was run and checked. See `demo_contract.json` for evidence.
+> One item is still a manual check: QuickSight Q answers.
 
-## Validated repair workflow
+The demo covers 20 synthetic SMT machines in Vietnam (Ho Chi Minh City, Hanoi, Binh Duong, Dong Nai, Can Tho) over 90 days, plus live simulated telemetry.
 
-Use Python 3.11+ with `snowflake-connector-python`, Node.js 22+, and an existing
-X-Small Snowflake warehouse with auto-suspend at or below 120 seconds.
-The guarded runner currently accepts only the authorized `demo43` pilot account
-and a **new** database beginning `REPAIR_VIETNAM_MAINTENANCE_`. It refuses existing
-databases and never replaces the running demo. Inspect the dry run first:
-
-```bash
-python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_TEST --warehouse HOL_GEN2_WH
-python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_TEST --warehouse HOL_GEN2_WH --apply
-python snowflake/test_run_core.py
-# then, with SET DEMO_DB / DEMO_WH for the same database:
-# snowflake/05_ml.sql  (failure-risk classifier, holdout metrics, 14-day forecast)
-python quicksight/test_build_dashboards.py
-npm --prefix app ci
-npm --prefix app run build
-```
-
-The runner executes only 00/02/03/04 and renders the validated warehouse
-identifier in the DT DDL. Do not execute these files individually without the
-session variables and rendering step. It creates 20 synthetic machines, 1,800
-machine-day observations and 20 spare-part records, using HASH-seeded randomness so
-machines differ in reliability, shifts, PM discipline, repair time and root causes; reconciles core measures;
-and suspends the four initialized dynamic tables. Retain the isolated namespace
-for inspection. A failed run leaves its isolated evidence intact; use a new name
-for a clean retry, not a destructive reset.
-
-The UI shows unavailable/error states instead of fallback values. Its API now
-requires the repaired core schema. Do not point it at the old live database or
-cut over the deployed service yet. Search, semantic view/agent, AWS ingestion, deployed UI
-and Q answer validation are still pending. QuickSight generation
-is dry-run by default (`python quicksight/build_dashboards.py --help`); `--apply`
-is explicit and requires an existing data source and principal. Successful API
-creation is not proof of rendered charts or correct Q answers.
-
-## Legacy target overview (not yet certified)
-
-Predictive Maintenance for Vietnam - ML.FORECAST and Dynamic Tables power real-time predictive maintenance intelligence for electronics manufacturing in Bac Ninh & Vinh Phuc.
-
-## Architecture (validated pilot path)
-
-Solid lines are built and validated in the pilot. Dotted lines are legacy targets that are **not** implemented or validated yet: `05_search.sql`, `06_ml_models.sql`, `07`–`11`, AWS ingestion, Bedrock and SageMaker.
+## Architecture
 
 ```mermaid
 flowchart LR
-    GEN[Seeded synthetic generator<br/>02_raw_tables.sql] --> RAW[RAW.MACHINES / SENSOR_READINGS / SPARE_PARTS]
-    RAW --> DT[CURATED dynamic tables<br/>KPI_SUMMARY, PERFORMANCE_SUMMARY,<br/>DOWNTIME_CAUSES, TREND_ANALYSIS]
-    RAW --> FEAT[ML.FAILURE_FEATURES<br/>train / holdout split]
-    FEAT --> CLS[ML.FAILURE_RISK_MODEL<br/>CLASSIFICATION]
-    CLS --> SCORES[ML.FAILURE_RISK_SCORES<br/>+ HOLDOUT_METRICS]
-    RAW --> FC[ML.DOWNTIME_FORECAST_MODEL<br/>FORECAST, 14 days]
-    DT --> API[Next.js API routes]
-    SCORES --> API
-    FC --> API
-    API --> ASK[/api/ask: allow-listed SQL<br/>+ AI_COMPLETE grounded summary/]
-    DT --> QS[QuickSight DIRECT_QUERY<br/>PAT-only service user]
-    DT -.-> SRCH[Cortex Search / Semantic View / Agent]
-    S3[S3 / Snowpipe / IoT Core] -.-> RAW
+    subgraph AWS
+      SIM[publish_telemetry.py] --> IOT[AWS IoT Core<br/>topic vn/maint/telemetry]
+      IOT -->|topic rule| S3[(Amazon S3<br/>iot/ landing)]
+      BR[Amazon Bedrock<br/>Claude Sonnet 4.5]
+      QS[Amazon QuickSight<br/>dashboard + Q topic]
+    end
+    subgraph Snowflake
+      S3 -->|SQS event| PIPE[Snowpipe AUTO_INGEST] --> LIVE[RAW.LIVE_TELEMETRY]
+      GEN[02_raw_tables.sql<br/>seeded generator] --> RAW[RAW.MACHINES / SENSOR_READINGS / SPARE_PARTS]
+      RAW --> DT[CURATED dynamic tables]
+      RAW --> ML[Snowflake ML<br/>CLASSIFICATION risk, FORECAST,<br/>ANOMALY_DETECTION]
+      DT --> SV[Semantic view<br/>APP.MAINTENANCE_ANALYTICS]
+      RAW --> CS[Cortex Search<br/>SOP knowledge base]
+      SV --> AG[Cortex Agent<br/>APP.MAINTENANCE_AGENT]
+      CS --> AG
+      LIVE --> AL[Alert APP.LIVE_ALARM_ALERT<br/>+ email]
+      UDF[APP.BEDROCK_GENERATE<br/>external access UDF]
+      TK[Task graph: refresh, then rescore]
+      APP[Next.js app on SPCS]
+    end
+    BR <--> UDF
+    DT --> APP
+    ML --> APP
+    LIVE --> APP
+    AG --> APP
+    UDF --> APP
+    DT --> QS
+    ML --> QS
+    LIVE --> QS
 ```
 
-## What is implemented
+## What is implemented and validated
 
-| Capability | Status | Objects |
+| Capability | Objects | Evidence |
 |---|---|---|
-| Synthetic data | Validated | 20 machines, 1,800 machine-days (90 days), spare parts |
-| Dynamic tables | Validated, reconciled with RAW (`run_core.py`) | `CURATED.KPI_SUMMARY`, `PERFORMANCE_SUMMARY`, `DOWNTIME_CAUSES`, `TREND_ANALYSIS` |
-| Failure-risk classification | Validated on holdout | `ML.FAILURE_RISK_MODEL`, `ML.FAILURE_RISK_SCORES`, `ML.FAILURE_RISK_HOLDOUT_METRICS` |
-| Downtime forecast | Built | `ML.DOWNTIME_FORECAST_MODEL`, `ML.DOWNTIME_FORECAST` |
-| Grounded AI answers | Validated | `/api/ask` (allow-listed queries plus `AI_COMPLETE`) |
-| QuickSight dashboard | Rendering verified | `quicksight/build_dashboards.py` |
-| QuickSight Q | Topic created; answers not yet tested | |
-| Cortex Search, Semantic View, Agent, anomaly detection, alerts, AWS ingestion | **Not validated**; legacy scripts under repair | `05_search.sql`, `06`–`11` |
+| Synthetic data | 20 machines, 1,800 machine-days, spare parts | Seeded, so rebuilds reproduce it; per-machine uptime ranges from 94.6% to 99.96% |
+| Dynamic tables | `CURATED.KPI_SUMMARY`, `PERFORMANCE_SUMMARY`, `DOWNTIME_CAUSES`, `TREND_ANALYSIS` | `run_core.py` recomputes KPIs from RAW and reconciles them |
+| Failure-risk model | `ML.FAILURE_RISK_MODEL` / `_SCORES` / `_HOLDOUT_METRICS` | Out-of-time holdout: precision 0.60, recall 0.53, base rate 0.38 |
+| Downtime forecast | `ML.DOWNTIME_FORECAST` | 14 days with prediction intervals |
+| Anomaly detection | `ML.VIBRATION_ANOMALIES` | 25 of 320 machine-days flagged (last 15 days) |
+| Cortex Search | `SEARCH.MAINTENANCE_SOP_SEARCH` | 14 synthetic SOPs, cited by ID in agent answers |
+| Semantic view and agent | `APP.MAINTENANCE_ANALYTICS`, `APP.MAINTENANCE_AGENT` | Stops by type sum to 181, matching the KPI |
+| IoT ingestion | IoT rule, then S3, then Snowpipe, into `RAW.LIVE_TELEMETRY` | 60 of 60 messages loaded; median lag 21 s |
+| Bedrock | `APP.BEDROCK_GENERATE` (external access) | Writes the action memo in the app |
+| Alert and email | `APP.LIVE_ALARM_ALERT`, `APP.ALERT_LOG` | New ALARM readings logged and emailed |
+| Task graph | `APP.TASK_REFRESH_CURATED`, then `APP.TASK_RESCORE_RISK` | Both succeeded on demand |
+| App (SPCS) | `APP.REPAIR_VN_MAINT_APP` | `/api/data`, `/api/ask` and `/api/agent` return 200 through ingress |
+| QuickSight dashboard | `quicksight/build_dashboards.py` | v5 rendered in the cloud, with 5 visuals |
+| QuickSight Q | `repair-vn-maint-topic` | Topic built and refreshed; **answers not yet checked by a person** |
+
+Dropped from the legacy design: SageMaker (Snowflake ML does the modelling), Glue (dynamic tables) and Iceberg (not needed). None of them is claimed.
 
 ## AWS services
 
-| Service | Status |
+| Service | Role |
 |---|---|
-| Amazon QuickSight | Implemented: Snowflake data source, dashboard |
-| Amazon QuickSight Q | Topic only; not validated |
-| AWS Secrets Manager | Stores the QuickSight service credential |
-| AWS IoT Core, S3/Iceberg, Glue, SageMaker, Bedrock | Legacy design targets, not implemented in this repo |
+| AWS IoT Core | Receives simulated machine telemetry. A topic rule writes each message to S3 |
+| Amazon S3 | Landing bucket. An event notification goes to the Snowpipe SQS queue |
+| AWS IAM | Least-privilege roles for Snowflake to read S3 and IoT to write S3; an IAM user that can only invoke Bedrock Claude |
+| Amazon Bedrock | Claude Sonnet 4.5 writes the action memo, called from Snowflake |
+| Amazon QuickSight (+ Q) | DIRECT_QUERY dashboard over Snowflake and a Q topic |
+| AWS Secrets Manager | Holds the QuickSight service credential |
 
-## Personas
+## Personas (fictional)
 
 | Persona | Role | Key Questions |
 |---------|------|---------------|
 | **Hoang Duc Long** | VP Engineering | "Which machines drive unplanned downtime?" "What is fleet uptime?" |
-| **Vu Thi Nga** | Maintenance Engineer | "Which machines are high failure risk this week?" "What are the top root causes?" |
+| **Vu Thi Nga** | Maintenance Engineer | "Which machines are high failure risk this week, and which SOP applies?" |
 
-## Build instructions
+## Build (on demand)
 
-Prerequisites: a Snowflake role that can create a database and models, an X-Small warehouse, and access to Cortex `AI_COMPLETE`. QuickSight additionally needs an AWS account with QuickSight Enterprise.
+Prerequisites:
+- Python 3.11+, `snowflake-connector-python`, `boto3`, Node.js 22+, Docker and the `snow` CLI.
+- An X-Small warehouse with auto-suspend at or below 120 s.
+- AWS credentials for the target account, with QuickSight Enterprise for the dashboard.
 
-Follow the guarded core workflow above (`run_core.py`), then `05_ml.sql`. The historical scripts `05_search.sql` through `11` are not a supported deployment path yet.
+```bash
+# 1. Core data and dynamic tables (guarded: new isolated database only)
+python snowflake/run_core.py --database REPAIR_VIETNAM_MAINTENANCE_X --warehouse HOL_GEN2_WH --apply
+# 2. AWS ingestion and Bedrock (dry run first, then --apply)
+python aws/setup_aws.py --database REPAIR_VIETNAM_MAINTENANCE_X --account <aws-account> --apply
+# 3. ML, search, semantic view, agent, alert and task graph
+python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --alert-email you@example.com
+# 4. App on SPCS: build and push the image, then run 07_deploy_app.sql (see the header of that file)
+python snowflake/run_intelligence.py --database REPAIR_VIETNAM_MAINTENANCE_X --alert-email you@example.com --files 07_deploy_app.sql
+# 5. QuickSight (needs an existing Snowflake data source)
+python quicksight/build_dashboards.py --database REPAIR_VIETNAM_MAINTENANCE_X ... --apply --update --with-topic
+# Tests
+python -m pytest aws snowflake quicksight
+```
+
+During the demo:
+- Run `python aws/publish_telemetry.py --count 20` to send live readings.
+- Run `EXECUTE ALERT APP.LIVE_ALARM_ALERT` to raise the alarm email.
+- Run `EXECUTE TASK APP.TASK_REFRESH_CURATED` to refresh the curated tables and rescore risk.
+
+Afterwards, `python aws/teardown_aws.py ... --apply` removes the AWS resources and the account-level integrations.
+
+For a local run, put `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_AUTHENTICATOR=PROGRAMMATIC_ACCESS_TOKEN` and `SNOWFLAKE_TOKEN` in the environment, then run `npm --prefix app run build && npm --prefix app start`.
 
 ## Business context
 

@@ -28,13 +28,15 @@ const DEFINITIONS =
   'Equipment uptime = sum(operating hours) / sum(planned hours). MTBF = sum(operating hours) / sum(failures). ' +
   'All data is synthetic demo data.';
 
-async function summarise(question: string, rows: unknown[]): Promise<string> {
+// provider 'cortex' = Snowflake AI_COMPLETE; 'bedrock' = Amazon Bedrock Claude
+// via the external-access UDF APP.BEDROCK_GENERATE (aws/setup_aws.py).
+async function summarise(question: string, rows: unknown[], provider: 'cortex' | 'bedrock' = 'cortex'): Promise<string> {
   const prompt =
     'You are a maintenance analyst. Answer ONLY from the JSON rows and definitions below. ' +
     'If the rows do not answer the question, say so. Do not invent numbers. Keep it under 120 words.\n' +
     `Definitions: ${DEFINITIONS}\nRows: ${JSON.stringify(rows)}\nQuestion: ${question}`;
   const out = await executeQuery<{ R: string }>(
-    `SELECT AI_COMPLETE('claude-sonnet-4-5', ?) AS R`,
+    provider === 'bedrock' ? 'SELECT APP.BEDROCK_GENERATE(?) AS R' : `SELECT AI_COMPLETE('claude-sonnet-4-5', ?) AS R`,
     [prompt],
   );
   const raw = String(out[0]?.R ?? '').trim();
@@ -60,17 +62,21 @@ export async function POST(req: Request) {
 
   try {
     if (memo) {
-      const [kpis, stops, causes] = await Promise.all([
+      const [kpis, stops, causes, risk, bands] = await Promise.all([
         executeQuery(INTENTS.kpis.sql),
         executeQuery(INTENTS.stops.sql),
         executeQuery(INTENTS.causes.sql),
+        executeQuery(`SELECT ENTITY_ID, ROUND(FAILURE_PROB_7D, 2) AS FAILURE_PROB_7D, RISK_BAND
+FROM ML.FAILURE_RISK_SCORES ORDER BY FAILURE_PROB_7D DESC LIMIT 5`),
+        executeQuery(`SELECT RISK_BAND, COUNT(*) AS MACHINES FROM ML.FAILURE_RISK_SCORES GROUP BY RISK_BAND`),
       ]);
-      const rows = { kpis, topStopMachines: stops, topCauses: causes };
+      const rows = { kpis, topStopMachines: stops, topCauses: causes, top5ByRisk: risk, machinesPerRiskBand: bands };
       const answer = await summarise(
         'Draft a short action memo for the maintenance director with 3 prioritised actions, citing the figures.',
         [rows],
+        'bedrock',
       );
-      return NextResponse.json({ answer, sources: rows, draft: true, synthetic: true });
+      return NextResponse.json({ answer, sources: rows, provider: 'Amazon Bedrock (Claude Sonnet 4.5)', draft: true, synthetic: true });
     }
     const key = Object.keys(INTENTS).find((k) => INTENTS[k].match.test(question))!;
     const rows = await executeQuery(INTENTS[key].sql);

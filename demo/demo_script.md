@@ -10,7 +10,8 @@ Use case: Predictive Maintenance
 - **Dynamic tables** reconcile machine KPIs from RAW sensor data, with checks in `run_core.py`
 - **Failure-risk classification** gives a holdout-evaluated next-7-day failure risk per machine
 - **Downtime forecast** projects 14 days of fleet downtime with prediction intervals
-- **Grounded AI** runs allow-listed queries summarised by `AI_COMPLETE`; the app shows the SQL and sources
+- **Grounded AI**: the Cortex Agent (Analyst over a semantic view, plus Search over SOPs) shows its SQL and SOP citations. The memo is written by Amazon Bedrock.
+- **Live AWS ingestion**: IoT Core feeds S3, then Snowpipe auto-ingest, then an alert and email
 
 ## What is built (pilot)
 
@@ -39,11 +40,13 @@ Values are synthetic. A rebuild reproduces them because the data is HASH-seeded.
 
 ## Demo flow
 
-1. Overview: KPIs and downtime by machine
-2. Analytics: daily uptime trend and root causes
-3. Predictive: holdout metrics, risk bands, 14-day downtime forecast
-4. Ask AI: grounded answers with SQL shown
-5. Architecture: what is built and what is not yet built
+1. Overview: KPIs and downtime by machine (also in QuickSight)
+2. Predictive: holdout metrics, risk bands, 14-day downtime forecast, vibration anomalies
+3. PM Planning: Generate a memo, written by Amazon Bedrock Claude from Snowflake tables only
+4. Live IoT: run `python aws/publish_telemetry.py --count 20`. About 20-60 s later the messages appear (IoT Core, then S3, then Snowpipe). Then run `EXECUTE ALERT APP.LIVE_ALARM_ALERT` and show the alert log and email.
+5. Ask AI: the Cortex Agent answers metric questions through the semantic view and cites SOPs from Cortex Search. The SQL is shown.
+6. QuickSight: the same Snowflake tables through DIRECT_QUERY; risk and IoT visuals
+7. Architecture: what runs where
 
 ## Talking points
 

@@ -22,7 +22,7 @@ WITH equipment AS (
   FROM equipment
 )
 SELECT 'MAC-' || LPAD(MACHINE_INDEX::VARCHAR, 4, '0') AS ID,
-       'Synthetic machine ' || (MACHINE_INDEX + 1) AS NAME,
+       'Synthetic machine ' || LPAD(MACHINE_INDEX::VARCHAR, 4, '0') AS NAME,
        CASE WHEN U_REGION < 0.35 THEN 'Ho Chi Minh City' WHEN U_REGION < 0.55 THEN 'Binh Duong'
             WHEN U_REGION < 0.75 THEN 'Hanoi' WHEN U_REGION < 0.90 THEN 'Dong Nai' ELSE 'Can Tho' END AS REGION,
        CASE WHEN U_CATEGORY < 0.35 THEN 'Pick and Place' WHEN U_CATEGORY < 0.60 THEN 'Reflow Oven'
