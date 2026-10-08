@@ -24,7 +24,7 @@ export function AskAI({ title = 'Ask AI', placeholder, sampleQuestions, mode, on
 
   const handleSubmit = async (question?: string) => {
     const q = question || input;
-    if (!q.trim()) return;
+    if (loading || !q.trim()) return;
 
     setMessages((prev) => [...prev, { role: 'user', content: q }]);
     setInput('');
@@ -71,6 +71,7 @@ export function AskAI({ title = 'Ask AI', placeholder, sampleQuestions, mode, on
                 <button
                   key={i}
                   className="block w-full rounded border border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  disabled={loading}
                   onClick={() => handleSubmit(q)}
                 >
                   {q}
@@ -100,6 +101,8 @@ export function AskAI({ title = 'Ask AI', placeholder, sampleQuestions, mode, on
         <div className="flex gap-2">
           <input
             type="text"
+            disabled={loading}
+            maxLength={2000}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}

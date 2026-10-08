@@ -51,6 +51,23 @@ function getOAuthToken(): string {
   }
 }
 
+/** Base URL and auth headers for Snowflake REST APIs (Cortex Agents). */
+export function restAuth(): { baseUrl: string; headers: Record<string, string> } {
+  const host = env('SNOWFLAKE_HOST') || `${env('SNOWFLAKE_ACCOUNT')}.snowflakecomputing.com`;
+  const pat = env('SNOWFLAKE_AUTHENTICATOR') === 'PROGRAMMATIC_ACCESS_TOKEN';
+  return {
+    baseUrl: `https://${host}`,
+    headers: {
+      Authorization: `Bearer ${getOAuthToken()}`,
+      'X-Snowflake-Authorization-Token-Type': pat ? 'PROGRAMMATIC_ACCESS_TOKEN' : 'OAUTH',
+    },
+  };
+}
+
+export function databaseName(): string {
+  return env('SNOWFLAKE_DATABASE') || env('DATABASE');
+}
+
 export async function getConnection() {
   if (connection) return connection;
   // Await an in-flight connect rather than starting a second one.
@@ -62,7 +79,9 @@ export async function getConnection() {
     host: env('SNOWFLAKE_HOST'),
     database: env('SNOWFLAKE_DATABASE') || env('DATABASE'),
     schema: env('SNOWFLAKE_SCHEMA') || env('SCHEMA') || 'CURATED',
-    authenticator: 'OAUTH',
+    // SPCS: OAUTH with the container token. Local runs may set
+    // SNOWFLAKE_AUTHENTICATOR=PROGRAMMATIC_ACCESS_TOKEN and SNOWFLAKE_TOKEN.
+    authenticator: env('SNOWFLAKE_AUTHENTICATOR') || 'OAUTH',
     token: getOAuthToken(),
     clientSessionKeepAlive: true,
   };
@@ -70,6 +89,9 @@ export async function getConnection() {
   // Not injected by SPCS. Omit entirely so the service QUERY_WAREHOUSE applies.
   const warehouse = env('SNOWFLAKE_WAREHOUSE') || env('WAREHOUSE');
   if (warehouse) options.warehouse = warehouse;
+  // Only needed for local PAT runs; SPCS derives both from the service token.
+  if (env('SNOWFLAKE_USER')) options.username = env('SNOWFLAKE_USER');
+  if (env('SNOWFLAKE_ROLE')) options.role = env('SNOWFLAKE_ROLE');
 
   const handle = snowflake.createConnection(options as any);
 
@@ -91,11 +113,12 @@ export async function getConnection() {
   return connecting;
 }
 
-export async function executeQuery<T = Record<string, any>>(sql: string): Promise<T[]> {
+export async function executeQuery<T = Record<string, any>>(sql: string, binds: (string | number)[] = []): Promise<T[]> {
   const conn = await getConnection();
   return new Promise((resolve, reject) => {
     conn.execute({
       sqlText: sql,
+      binds,
       complete: (err: any, _stmt: any, rows: T[]) => {
         if (err) {
           // A dead session must not poison every later request.
@@ -109,21 +132,3 @@ export async function executeQuery<T = Record<string, any>>(sql: string): Promis
   });
 }
 
-export async function callCortexComplete(model: string, prompt: string): Promise<string> {
-  const rows = await executeQuery<{ RESPONSE: string }>(
-    `SELECT SNOWFLAKE.CORTEX.COMPLETE('${model}', '${prompt.replace(/'/g, "''")}') AS RESPONSE`
-  );
-  return rows[0]?.RESPONSE || '';
-}
-
-export async function callCortexAnalyst(semanticView: string, question: string): Promise<{ sql: string; answer: string }> {
-  const rows = await executeQuery<{ SQL_TEXT: string; ANSWER: string }>(
-    `SELECT * FROM TABLE(
-      SNOWFLAKE.CORTEX.ANALYST(
-        SEMANTIC_VIEW => '${semanticView}',
-        QUESTION => '${question.replace(/'/g, "''")}'
-      )
-    )`
-  );
-  return { sql: rows[0]?.SQL_TEXT || '', answer: rows[0]?.ANSWER || '' };
-}

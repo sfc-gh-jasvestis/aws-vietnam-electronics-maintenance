@@ -25,11 +25,11 @@ export function AppLayout({ title, subtitle, logo, tabs, narrative }: AppLayoutP
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('demo') === 'true') setDemoMode(true);
+    if (params.get('demo') === 'true' && narrative) setDemoMode(true);
     if (params.get('timer') === 'true') setTimerMode(true);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D' && narrative) {
         e.preventDefault();
         setDemoMode((prev) => !prev);
       }
@@ -47,7 +47,7 @@ export function AppLayout({ title, subtitle, logo, tabs, narrative }: AppLayoutP
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, tabs]);
+  }, [activeTab, tabs, narrative]);
 
   return (
     <div className={`min-h-screen bg-slate-50 ${demoMode ? 'pr-80' : ''}`}>
@@ -75,7 +75,7 @@ export function AppLayout({ title, subtitle, logo, tabs, narrative }: AppLayoutP
       </header>
 
       <nav className="border-b border-slate-200 bg-white px-6">
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}

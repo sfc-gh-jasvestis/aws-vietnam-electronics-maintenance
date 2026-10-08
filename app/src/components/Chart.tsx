@@ -3,14 +3,14 @@
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, ScatterChart, Scatter,
 } from 'recharts';
 
 const COLORS = ['#29B5E8', '#FF6B35', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#6366F1', '#EC4899'];
 
 interface ChartProps {
   data: Record<string, any>[];
-  type: 'bar' | 'line' | 'area' | 'pie';
+  type: 'bar' | 'line' | 'area' | 'pie' | 'scatter';
   xKey: string;
   yKeys: { key: string; name: string; color?: string }[];
   title?: string;
@@ -21,6 +21,16 @@ interface ChartProps {
 export function Chart({ data, type, xKey, yKeys, title, height = 300, stacked = false }: ChartProps) {
   const renderChart = () => {
     switch (type) {
+      case 'scatter':
+        return (
+          <ScatterChart>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" dataKey={xKey} name="PM compliance" unit="%" domain={[0, 100]} />
+            <YAxis type="number" dataKey={yKeys[0].key} name={yKeys[0].name} domain={[0, 100]} />
+            <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+            <Scatter name={yKeys[0].name} data={data} fill={COLORS[0]} />
+          </ScatterChart>
+        );
       case 'bar':
         return (
           <BarChart data={data}>
@@ -78,9 +88,11 @@ export function Chart({ data, type, xKey, yKeys, title, height = 300, stacked = 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       {title && <h3 className="mb-3 text-sm font-semibold text-slate-700">{title}</h3>}
-      <ResponsiveContainer width="100%" height={height}>
-        {renderChart()}
-      </ResponsiveContainer>
+      {data.length === 0 ? <p role="status" className="text-sm text-slate-500">No observations available.</p> : (
+        <ResponsiveContainer width="100%" height={height}>
+          {renderChart()}
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
