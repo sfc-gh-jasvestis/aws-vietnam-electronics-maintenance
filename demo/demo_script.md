@@ -3,76 +3,57 @@
 **Vietnam - Electronics Manufacturing**
 Use case: Predictive Maintenance
 
-> Predictive Maintenance for Vietnam - ML.FORECAST and Dynamic Tables power real-time predictive maintenance intelligence for electronics manufacturing in Bac Ninh & Vinh Phuc.
+> Predictive maintenance for a synthetic fleet of 20 SMT machines in Vietnam. Dynamic tables, a holdout-evaluated failure-risk classifier, a downtime forecast and grounded AI answers.
 
 ## Why Snowflake
 
-Snowflake delivers predictive maintenance intelligence for Vietnamese electronics manufacturing - Dynamic Tables maintain real-time dashboards, ML.FORECAST projects key metrics, and Cortex AI generates recommendations
+- **Dynamic tables** reconcile machine KPIs from RAW sensor data, with checks in `run_core.py`
+- **Failure-risk classification** gives a holdout-evaluated next-7-day failure risk per machine
+- **Downtime forecast** projects 14 days of fleet downtime with prediction intervals
+- **Grounded AI** runs allow-listed queries summarised by `AI_COMPLETE`; the app shows the SQL and sources
 
-- **ML.FORECAST for predictive maintenance** - Only demo for Vietnamese electronics manufacturing
-- **ML.ANOMALY_DETECTION early warning** - Detects deviations before impact
-- **AI recommendations** - Cortex AI actionable guidance
-- **Vietnamese context** - Local names, VND economics
-
-## What is deployed
+## What is built (pilot)
 
 | | |
 |---|---|
-| Database | `VIETNAM_ELECTRONICS_MAINTENANCE` |
-| Service | `VIETNAM_ELECTRONICS_MAINTENANCE_APP` |
-| Compute pool | `SEA_DEMOS_VIETNAM_POOL` |
 | Dimension table | `RAW.MACHINES` (20 rows) |
-| Fact table | `RAW.SENSOR_READINGS` (250,000 rows, 90 days) |
-| Curated layer | `CURATED.PERFORMANCE_SUMMARY`, `CURATED.TREND_ANALYSIS`, `CURATED.KPI_SUMMARY` |
-| Currency | VND (₫) |
+| Fact table | `RAW.SENSOR_READINGS` (1,800 machine-days, 90 days) |
+| Curated layer | `CURATED.KPI_SUMMARY`, `PERFORMANCE_SUMMARY`, `DOWNTIME_CAUSES`, `TREND_ANALYSIS` |
+| ML | `ML.FAILURE_RISK_SCORES`, `ML.FAILURE_RISK_HOLDOUT_METRICS`, `ML.DOWNTIME_FORECAST` |
 
-Regions in play: Ho Chi Minh City, Hanoi, Binh Duong, Dong Nai, Can Tho
-Segments: Pick and Place, Reflow Oven, AOI Station, Conveyor
+Regions: Ho Chi Minh City, Hanoi, Binh Duong, Dong Nai, Can Tho.
+Machine types: Pick and Place, Reflow Oven, AOI Station, Conveyor.
 
-Dynamic tables are created suspended and refreshed on demand:
+## KPI cards (live from `CURATED.KPI_SUMMARY`; no fallback values)
 
-```bash
-./refresh_demo_data.sh VIETNAM_ELECTRONICS_MAINTENANCE
-```
+| Card | Value in validated build |
+|---|---|
+| Equipment Uptime | 98.7% |
+| Unplanned Stops | 181 |
+| MTBF (Avg) | 185.9 hrs |
+| Equipment Managed | 20 |
+| Parts on Order | 4 |
+| Spare Coverage | 66.7% |
 
-## KPI cards
-
-Every card below is served live from `CURATED.KPI_SUMMARY`. The app keeps the
-original literal as a fallback, so it still renders if Snowflake is unreachable.
-
-| Card | Value | Backed by |
-|---|---|---|
-| Equipment Uptime | `96.4%` | average per event |
-| Unplanned Stops | `14` | total across Machines |
-| MTBF (Avg) | `847 hrs` | average per event |
-| Equipment Managed | `2,400` | total across Machines |
-| Predicted Failures (7d) | `6` | total across Machines |
-| Parts on Order | `24` | total across Machines |
-| Spare Coverage | `91%` | average per event |
-
+Values are synthetic. A rebuild reproduces them because the data is HASH-seeded.
 
 ## Demo flow
 
-1. Overview
-2. Analytics
-3. AI Intelligence
-4. Ask AI
-5. Architecture
+1. Overview: KPIs and downtime by machine
+2. Analytics: daily uptime trend and root causes
+3. Predictive: holdout metrics, risk bands, 14-day downtime forecast
+4. Ask AI: grounded answers with SQL shown
+5. Architecture: what is built and what is not yet built
 
 ## Talking points
 
-- **100K operations** - tracked in Bac Ninh & Vinh Phuc
-- **500K metrics** - time-series data points
-- **5K assets** - monitored
-- **100 docs** - searchable
+- Uptime ranges from 94.6% to 99.96% by machine. Downtime is concentrated in a few machines.
+- The risk model is evaluated on a time-based holdout: precision 0.60 and recall 0.53 at 0.5, against a 0.38 base rate. Present it as triage, not a guarantee.
+- Regional power outages are excluded from failure labels.
 
 ## Business impact
 
-- Vietnam electronics manufacturing sector growing rapidly (GSO Vietnam)
-- AI improves outcomes 15-30% (McKinsey)
-- Vietnam FDI strong in this sector (MPI)
-- Real-time analytics reduces response 60-80% (Gartner)
+Use only the sourced references in `README.md` (Business context). Unsourced industry percentages have been removed.
 
 ---
-Generated from `generator/demo_specs/aws-vietnam-electronics-maintenance.json`. Do not hand-edit: run
-`python3 generator/gen_repo_docs.py aws-vietnam-electronics-maintenance` instead.
+Hand-maintained during the 2026-10 repair. It supersedes the generated version.

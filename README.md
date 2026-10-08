@@ -35,8 +35,8 @@ for a clean retry, not a destructive reset.
 
 The UI shows unavailable/error states instead of fallback values. Its API now
 requires the repaired core schema. Do not point it at the old live database or
-cut over the deployed service yet. Model, AI, search, AWS ingestion, deployed UI,
-and QuickSight/Q functional validation are still pending. QuickSight generation
+cut over the deployed service yet. Search, semantic view/agent, AWS ingestion, deployed UI
+and Q answer validation are still pending. QuickSight generation
 is dry-run by default (`python quicksight/build_dashboards.py --help`); `--apply`
 is explicit and requires an existing data source and principal. Successful API
 creation is not proof of rendered charts or correct Q answers.
@@ -45,123 +45,76 @@ creation is not proof of rendered charts or correct Q answers.
 
 Predictive Maintenance for Vietnam - ML.FORECAST and Dynamic Tables power real-time predictive maintenance intelligence for electronics manufacturing in Bac Ninh & Vinh Phuc.
 
-## Architecture
+## Architecture (validated pilot path)
 
-Vietnam electronics manufacturing faces increasing complexity in predictive maintenance. Decision-makers in Bac Ninh & Vinh Phuc need real-time intelligence and ML-powered recommendations.
+Solid lines are built and validated in the pilot. Dotted lines are legacy targets that are **not** implemented or validated yet: `05_search.sql`, `06_ml_models.sql`, `07`–`11`, AWS ingestion, Bedrock and SageMaker.
 
 ```mermaid
 flowchart LR
-    S3[S3 Data Landing] --> SP[Snowpipe]
-    SPS --> RAW
-    RAW --> DT[Dynamic Tables]
-    DT --> ML[ML Functions]
-    DT --> SEARCH[Cortex Search]
-    DT --> SV[Semantic View]
-    SV --> AGENT[Cortex Agent]
-    SEARCH --> AGENT
-    DT --> APP[React App SPCS]
-    SM[SageMaker] --> DT
-    BR[Bedrock] --> APP
-    DT --> QS[QuickSight + Q]
+    GEN[Seeded synthetic generator<br/>02_raw_tables.sql] --> RAW[RAW.MACHINES / SENSOR_READINGS / SPARE_PARTS]
+    RAW --> DT[CURATED dynamic tables<br/>KPI_SUMMARY, PERFORMANCE_SUMMARY,<br/>DOWNTIME_CAUSES, TREND_ANALYSIS]
+    RAW --> FEAT[ML.FAILURE_FEATURES<br/>train / holdout split]
+    FEAT --> CLS[ML.FAILURE_RISK_MODEL<br/>CLASSIFICATION]
+    CLS --> SCORES[ML.FAILURE_RISK_SCORES<br/>+ HOLDOUT_METRICS]
+    RAW --> FC[ML.DOWNTIME_FORECAST_MODEL<br/>FORECAST, 14 days]
+    DT --> API[Next.js API routes]
+    SCORES --> API
+    FC --> API
+    API --> ASK[/api/ask: allow-listed SQL<br/>+ AI_COMPLETE grounded summary/]
+    DT --> QS[QuickSight DIRECT_QUERY<br/>PAT-only service user]
+    DT -.-> SRCH[Cortex Search / Semantic View / Agent]
+    S3[S3 / Snowpipe / IoT Core] -.-> RAW
 ```
 
-## Snowflake Capabilities
+## What is implemented
 
-| Capability | Implementation |
-|-----------|---------------|
-| Dynamic Tables | PERFORMANCE_DASHBOARD / TREND_ANALYTICS / FORECAST_INPUT / OPERATIONAL_RISK |
-| ML Functions | ML.FORECAST + ML.ANOMALY_DETECTION |
-| Cortex AI | COMPLETE, SUMMARIZE, AI_CLASSIFY |
-| Cortex Search | 100 documents indexed |
-| Cortex Agent | ELECTRONICS_MAINTENANCE_AGENT |
-| Semantic View | ELECTRONICS_MAINTENANCE_ANALYTICS |
-| React App (SPCS) | 5 tabs + DemoGuide |
+| Capability | Status | Objects |
+|---|---|---|
+| Synthetic data | Validated | 20 machines, 1,800 machine-days (90 days), spare parts |
+| Dynamic tables | Validated, reconciled with RAW (`run_core.py`) | `CURATED.KPI_SUMMARY`, `PERFORMANCE_SUMMARY`, `DOWNTIME_CAUSES`, `TREND_ANALYSIS` |
+| Failure-risk classification | Validated on holdout | `ML.FAILURE_RISK_MODEL`, `ML.FAILURE_RISK_SCORES`, `ML.FAILURE_RISK_HOLDOUT_METRICS` |
+| Downtime forecast | Built | `ML.DOWNTIME_FORECAST_MODEL`, `ML.DOWNTIME_FORECAST` |
+| Grounded AI answers | Validated | `/api/ask` (allow-listed queries plus `AI_COMPLETE`) |
+| QuickSight dashboard | Rendering verified | `quicksight/build_dashboards.py` |
+| QuickSight Q | Topic created; answers not yet tested | |
+| Cortex Search, Semantic View, Agent, anomaly detection, alerts, AWS ingestion | **Not validated**; legacy scripts under repair | `05_search.sql`, `06`–`11` |
 
+## AWS services
 
-## AWS Services
-
-| Service | Role in Demo |
-|---------|-------------|
-| AWS IoT Core | Ingest real-time data from electronics manufacturing systems |
-| Amazon SageMaker | Predictive Maintenance ML models |
-| AWS Glue | ETL and data transformation |
-| Apache Iceberg (S3) | Open table format for data sharing |
-| Amazon Bedrock (Claude) | Generate predictive maintenance recommendations |
-| Amazon QuickSight + Q | Predictive Maintenance dashboard with NL queries |
-
+| Service | Status |
+|---|---|
+| Amazon QuickSight | Implemented: Snowflake data source, dashboard |
+| Amazon QuickSight Q | Topic only; not validated |
+| AWS Secrets Manager | Stores the QuickSight service credential |
+| AWS IoT Core, S3/Iceberg, Glue, SageMaker, Bedrock | Legacy design targets, not implemented in this repo |
 
 ## Personas
 
 | Persona | Role | Key Questions |
 |---------|------|---------------|
-| **Hoang Duc Long** | VP Engineering | "What are the key predictive maintenance metrics?" "Which areas need attention?" |
-| **Vu Thi Nga** | Maintenance Engineer | "Show me the trend analysis." "Which operations are underperforming?" |
+| **Hoang Duc Long** | VP Engineering | "Which machines drive unplanned downtime?" "What is fleet uptime?" |
+| **Vu Thi Nga** | Maintenance Engineer | "Which machines are high failure risk this week?" "What are the top root causes?" |
 
+## Build instructions
 
-## Data
+Prerequisites: a Snowflake role that can create a database and models, an X-Small warehouse, and access to Cortex `AI_COMPLETE`. QuickSight additionally needs an AWS account with QuickSight Enterprise.
 
-| Table | Rows | Description |
-|-------|------|-------------|
-| OPERATIONS | 100,000 | Core operational records for predictive maintenance |
-| METRICS | 500,000 | Time-series performance metrics |
-| ASSETS | 5,000 | Asset and entity master data |
-| EVENTS | 200,000 | Operational events and incidents |
-| DOCUMENTS | 100 | SOPs, reports, and compliance docs |
+Follow the guarded core workflow above (`run_core.py`), then `05_ml.sql`. The historical scripts `05_search.sql` through `11` are not a supported deployment path yet.
 
+## Business context
 
-## Build Instructions
+Every figure in this section has been checked against its source. Industry statistics that appeared in earlier versions (a VEIA facility and downtime share, McKinsey maintenance-cost ranges, IPC SMT spare-parts values, a Bosch downtime reduction) have been **removed**: their sources were inaccessible or contained no supporting passage. Do not reintroduce them without an exact source passage.
 
-### Prerequisites
-- Snowflake account with ACCOUNTADMIN access
-- Cortex AI enabled (ML Functions, Search, Agent)
-- Warehouse: ELECTRONICS_WH (Medium)
-- AWS CLI with access (us-west-2)
+- **Siemens** (Snowflake customer) built the Siemens Data Cloud on Snowflake. It reports 600+ projects across business divisions and 4,800 data warehouses integrated. It replicates more than 50 ERP systems and over 1.5 billion changes per day using SNP Glue. A proof of concept across three factory automation sites in Germany and China assigns supply-chain risk scores to materials at risk of undersupply. It also uses Snowflake as a data source for Amazon SageMaker Data Wrangler. This is a supply-chain and data-platform reference, not a predictive-maintenance outcome. Source: [Snowflake customer story](https://www.snowflake.com/en/customers/all-customers/case-study/siemens-1/), retrieved 2026-10-08.
 
-### Deployment
+## Demo numbers (synthetic, from the validated build)
 
-See the guarded core workflow above. The historical all-script sequence is not
-currently a supported fresh-deployment path; downstream scripts remain under repair.
+- 20 machines, 1,800 machine-days over 90 days
+- Fleet uptime 98.65%; per-machine uptime ranges from 94.6% to 99.96%
+- 181 unplanned stops across 10 root causes
+- Failure-risk model holdout: precision 0.60, recall 0.53 at a 0.5 threshold, against a 0.38 base rate
 
-### React App (SPCS)
-```bash
-cd app && npm ci && npm run build
-docker build -t aws-vietnam-electronics-maintenance-app .
-docker push bdiqc8sm-default.registry.snowflakecomputing.com/electronics_maintenance/app/aws_vietnam_electronics_maintenance/app:latest
-```
-
-### Demo Mode
-Open the app URL with `?demo=true` for presenter view.
-
-## Build Modes
-
-### Snowflake Only
-Run scripts 00-08 (skip AWS-specific integration). Uses:
-- **Snowpipe Streaming SDK** instead of AWS IoT Core
-- **ML.FORECAST + ML.ANOMALY_DETECTION** instead of Amazon SageMaker
-- **Dynamic Tables** instead of AWS Glue
-- **Snowflake-managed Iceberg Tables** instead of Apache Iceberg (S3)
-- **Cortex Complete** instead of Amazon Bedrock (Claude)
-- **Snowflake Intelligence (Cortex Analyst)** instead of Amazon QuickSight + Q
-
-### Full AWS + Snowflake
-Run all scripts including AWS integration. Deploy QuickSight dashboard from `quicksight/`.
-
-## Business Impact
-
-Industry research and Snowflake customer outcomes:
-- **Vietnam has 500+ electronics manufacturing facilities — equipment failure accounts for 23% of total downtime** — [Vietnam Electronics Industries Association](https://veia.org.vn/)
-- **Predictive maintenance reduces maintenance costs 25-30% and eliminates 70-75% of equipment breakdowns** — [McKinsey Operations](https://www.mckinsey.com/capabilities/operations/our-insights/maintenance-4-0)
-- **SMT (Surface Mount Technology) lines require $500K-$2M in spare parts inventory — AI optimization reduces this 20%** — [IPC/Global Electronics Association](https://www.electronics.org/electronics-industry-data)
-- **Bosch achieved 25% reduction in unplanned downtime using ML-based equipment health monitoring** — [Bosch Industry 4.0](https://www.bosch.com/stories/industry-4-0/)
-- **Siemens** (Snowflake customer): processes 2+ petabytes of manufacturing data on Snowflake for real-time yield and quality analytics across global fabs -- [snowflake.com/customers/siemens](https://www.snowflake.com/en/customers/all-customers/case-study/siemens-1/)
-
-## Key Demo Numbers
-
-- **100K operations** tracked in Bac Ninh & Vinh Phuc
-- **500K metrics** time-series data points
-- **5K assets** monitored
-- **100 docs** searchable
-
+All figures are synthetic and illustrative. They are not customer data.
 
 ## License
 

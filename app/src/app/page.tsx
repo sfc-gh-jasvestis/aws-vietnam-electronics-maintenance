@@ -134,8 +134,10 @@ export default function HomePage() {
       <h2 className="font-semibold">Implementation and validation status</h2>
       <p>Core source: synthetic machines, daily observations and spares. Curated dynamic tables compute numerator/denominator metrics and are suspended after on-demand initialization.</p>
       <p>Application: Next.js server queries the explicit curated contract. Request time and source observation watermark are separate.</p>
-      <p>QuickSight: offline definitions include equipment count, daily uptime and per-machine uptime. Cloud rendering and Q answers remain untested.</p>
-      <p>Still incomplete: model output, search, semantic analytics, authenticated AI, AWS ingestion and notifications. These capabilities remain required; this page is not an end-to-end certification.</p>
+      <p>ML: SNOWFLAKE.ML.CLASSIFICATION failure-risk model evaluated on a time-based holdout, plus a 14-day downtime FORECAST with prediction intervals.</p>
+      <p>AI: /api/ask runs allow-listed SQL and summarises only those rows with AI_COMPLETE; the SQL and sources are returned with every answer.</p>
+      <p>QuickSight: Snowflake DIRECT_QUERY dashboard (downtime by machine, daily uptime) rendered in the cloud via a PAT-only service user. Q answers remain untested.</p>
+      <p>Still incomplete: Cortex Search, semantic view/agent, anomaly detection, AWS ingestion and notifications. This page is not an end-to-end certification.</p>
     </div>
   );
   const tabs = [
